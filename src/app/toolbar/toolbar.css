@@ -1,0 +1,16 @@
+.example-spacer {
+  flex: 1 1 auto;
+}
+
+.mat-toolbar {
+  background: #31a357;
+  color: rgb(219, 228, 215);
+}
+
+.githubButton {
+  color: rgb(219, 228, 215);
+  background-image: url("../../assets/codeIcon.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  padding-left: 24px;
+}
