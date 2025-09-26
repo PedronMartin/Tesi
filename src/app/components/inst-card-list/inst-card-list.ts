@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { InstructionCard } from '../instruction-card/instruction-card';
 import { CommonModule } from '@angular/common';
@@ -10,7 +11,9 @@ import { CommonModule } from '@angular/common';
 	styleUrl: './inst-card-list.css'
 })
 export class InstCardList {
-	showCapture = false;
+
+	constructor(private router: Router) {};
+
 	instructionCards = [
 		{
 			title: "Cattura",
@@ -37,16 +40,12 @@ export class InstCardList {
 			button: "Estrai"
 		}
 	];
-	onCardButtonClick(index: number) {
-		if (index === 0) {
-			this.showCapture = true;
-			setTimeout(() => {
-				const el = document.getElementById('leaflet-map-container');
-				if (el) {
-					el.scrollIntoView({ behavior: 'smooth' });
-				}
-			}, 100);
-		}
-		// Altri comportamenti per altri pulsanti qui
-	}
+    
+    //funzione richiamata al click del pulsante in ciascuna card, gestita tramite l'indice della card
+    onCardButtonClick(index: number) {
+        if(index == 0) {
+            this.router.navigate(['/cattura']);
+        }
+        //TODO: comportamento altri pulsanti da schermata HOME
+    }
 }

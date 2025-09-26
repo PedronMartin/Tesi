@@ -6,8 +6,8 @@ import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-home',
-  templateUrl: './home.component.html',
-  styleUrls: ['./home.component.css'],
+  templateUrl: './home-page.html',
+  styleUrls: ['./home-page.css'],
   imports: [InstCardList, Toolbar, MapLayerComponent]
 })
-export class HomeComponent {}
+export class HomePage {}

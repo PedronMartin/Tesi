@@ -1,7 +1,8 @@
 import { Routes } from '@angular/router';
-import { HomeComponent } from './home/home.component';
+import { HomePage } from './home-page/home-page';
+import { CatturaPage } from './cattura-page/cattura-page';
 
 export const routes: Routes = [
-  { path: '', component: HomeComponent },
-  //{ path: 'cattura', component: CatturaPageComponent },
+  { path: '', component: HomePage },
+  { path: 'cattura', component: CatturaPage },
 ];
