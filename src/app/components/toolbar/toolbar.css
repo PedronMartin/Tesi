@@ -9,8 +9,17 @@
 
 .githubButton {
   color: rgb(219, 228, 215);
-  background-image: url("../../assets/codeIcon.svg");
   background-repeat: no-repeat;
   background-position: center;
-  padding-left: 24px;
+  background-size: 24px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  min-height: 40px;
+}
+
+.githubButtonIMG {
+  display: inline-block;
+  vertical-align: middle;
 }
