@@ -1,11 +1,25 @@
 import { Component } from '@angular/core';
+import { SharedService } from '../shared';
+import { JsonPipe } from '@angular/common';
 
 @Component({
   selector: 'app-cattura-page',
-  imports: [],
+  imports: [JsonPipe],
   templateUrl: './cattura-page.html',
   styleUrl: './cattura-page.css'
 })
 export class CatturaPage {
+
+  dati = [];
+
+  //servizio di condivisione dati
+  private sharedService: SharedService;
+
+  constructor(sharedService: SharedService) { this.sharedService = sharedService; }
+
+  //prelevo i dati dal servizio di condivisione
+  ngOnInit() {
+    this.dati = this.sharedService.get();
+  }
 
 }

@@ -5,3 +5,10 @@ h1 {
 p {
   font-size: 1.2em;
 }
+
+#map {
+  width: 100vw;
+  height: 60vh;
+  margin: 0 auto;
+  display: block;
+}

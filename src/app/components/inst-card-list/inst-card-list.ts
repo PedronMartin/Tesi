@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { InstructionCard } from '../instruction-card/instruction-card';
 import { CommonModule } from '@angular/common';
+import { SharedService } from '../../shared';
 
 @Component({
 	selector: 'app-inst-card-list',
@@ -12,8 +13,10 @@ import { CommonModule } from '@angular/common';
 })
 export class InstCardList {
 
-	constructor(private router: Router) {};
+	//costruttore per il router delle pagine e per il servizio di condivisione dati
+	constructor(private router: Router, private SharedService: SharedService) {};
 
+	//array di oggetti che rappresentano le card delle istruzioni
 	instructionCards = [
 		{
 			title: "Cattura",
@@ -44,8 +47,11 @@ export class InstCardList {
     //funzione richiamata al click del pulsante in ciascuna card, gestita tramite l'indice della card
     onCardButtonClick(index: number) {
         if(index == 0) {
+			//notifico l'elemento shared per catturare i dati della mappa (per il cambio schermata)
+			this.SharedService.triggerCattura();
             this.router.navigate(['/cattura']);
         }
         //TODO: comportamento altri pulsanti da schermata HOME
     }
 }
+
