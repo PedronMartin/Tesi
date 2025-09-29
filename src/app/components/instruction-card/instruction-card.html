@@ -2,7 +2,7 @@
 	<div class="card-content">
 		<header>
 			<div class="title-row">
-	<span class="card-title">{{number}}. {{title}}</span>
+				<span class="card-title">{{number}}. {{title}}</span>
 				<img [src]="path" class="card-img">
 			</div>
 		</header>
@@ -11,7 +11,7 @@
 		</content>
 		<mat-card-footer class="more">
 			<mat-chip>More</mat-chip>
-	<button mat-chip (click)="buttonClick.emit()">{{button}}</button>
+			<button mat-chip (click)="onButtonClick()">{{button}}</button>
 		</mat-card-footer>
 	</div>
 </mat-card>

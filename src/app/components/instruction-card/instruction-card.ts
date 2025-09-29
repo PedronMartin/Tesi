@@ -18,10 +18,29 @@ import { Input } from '@angular/core';
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class InstructionCard {
-	@Input() number?: number;
+
+	//campi
+	number?: number;
+	title: string = '';
+	longText: string = '';
+	path: string = '';
+	button: string = '';
+	/*@Input() number?: number;
 	@Input() title: string = '';
 	@Input() longText: string = '';
 	@Input() path: string = '';
 	@Input() button: string = '';
-	@Output() buttonClick = new EventEmitter<void>();
+	@Output() buttonClick = new EventEmitter<void>();*/
+
+	private ngOnInit(){
+		this.number = 0;
+		this.title = "Cattura";
+		this.longText = "Cattura: una volta che hai individuato la zona che ti interessa analizzare, puoi catturare l'immagine cliccando sul pulsante 'Cattura'.";
+		this.path = "assets/cattura.svg";
+		this.button = "Cattura";
+	}
+
+	onButtonClick() {
+		//this.buttonClick.emit();
+	}
 }
