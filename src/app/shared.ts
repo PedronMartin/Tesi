@@ -9,11 +9,10 @@ export class SharedService {
   private CaptureZone = [];
 
   //Subject per notificare la richiesta di cattura
-  public catturaPerimetro$ = new Subject<void>();
+  public notificaCattura$ = new Subject<void>();
 
   set(val: any) {
     this.CaptureZone = val;
-    console.log('Dati catturati e salvati nel servizio di condivisione:', this.CaptureZone);
   }
 
   get() {
@@ -22,6 +21,6 @@ export class SharedService {
 
   // Metodo per notificare la mappa
   triggerCattura() {
-    this.catturaPerimetro$.next();
+    this.notificaCattura$.next();
   }
 }

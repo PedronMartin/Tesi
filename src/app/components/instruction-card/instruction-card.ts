@@ -4,11 +4,12 @@ import { CommonModule } from '@angular/common';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatCardModule} from '@angular/material/card';
 import {MatChipsModule} from '@angular/material/chips';
+import { SharedService } from '../../shared';
+import { Router } from '@angular/router';
 
 /**
  * @title Card with footer
  */
-import { Input } from '@angular/core';
 
 @Component({
 	selector: 'instructionCard',
@@ -32,6 +33,10 @@ export class InstructionCard {
 	@Input() button: string = '';
 	@Output() buttonClick = new EventEmitter<void>();*/
 
+	//costruttore per il router delle pagine e per il servizio di condivisione dati
+	constructor(private router: Router, private SharedService: SharedService) {};
+
+
 	private ngOnInit(){
 		this.number = 0;
 		this.title = "Cattura";
@@ -41,6 +46,8 @@ export class InstructionCard {
 	}
 
 	onButtonClick() {
-		//this.buttonClick.emit();
+		/* TODO: gestire il click sul bottone in base all'attuale contenuto della card */
+		//notifico l'elemento shared per catturare i dati della mappa
+		this.SharedService.triggerCattura();
 	}
 }

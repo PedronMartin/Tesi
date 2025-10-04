@@ -1,13 +1,12 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
-import { InstructionCard } from '../instruction-card/instruction-card';
 import { CommonModule } from '@angular/common';
 import { SharedService } from '../../shared';
 
 @Component({
 	selector: 'app-inst-card-list',
-	imports: [MatIconModule, InstructionCard, CommonModule],
+	imports: [MatIconModule, CommonModule],
 	templateUrl: './inst-card-list.html',
 	styleUrl: './inst-card-list.css'
 })

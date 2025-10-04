@@ -1,9 +1,14 @@
-<app-toolbar></app-toolbar>
+<div class="main-content">
+  
+  <app-toolbar class="toolbar"></app-toolbar>
 
-<app-map-layer id="map"></app-map-layer>
+  <app-map-layer [mapId] = "'map1'"></app-map-layer>
 
-<div style="text-align:center;">
-  <p>Istruzioni d'uso</p>
+  <instructionCard></instructionCard>
+
+  <div *ngIf="mostraCattura" id="catturaSection">
+    <app-map-layer class="map" [mapId] = "'map2'"></app-map-layer>
+    <instructionCard></instructionCard>
+  </div>
+
 </div>
-
-<instructionCard></instructionCard>
