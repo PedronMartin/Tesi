@@ -9,6 +9,7 @@ import { Subscription } from 'rxjs';
   styleUrls: ['./map-layer.css']
 })
 export class MapLayerComponent implements AfterViewInit {
+  private drawControl: any;
 
   //campi
   @Input() mapId: string = 'map';
@@ -28,17 +29,22 @@ export class MapLayerComponent implements AfterViewInit {
       if(this.mapId == 'map1') {
         MapLayerComponent.captureData = [];
         MapLayerComponent.captureData = this.onCapture();
+        // Nessuna chiamata a drawableMap per map1
       }
+      //map2
       else {
         this.map.eachLayer((layer: any) => {
           //rimuovi tutti i layer tranne il tileLayer (quello di base)
           if (!(layer instanceof this.L.TileLayer))
             this.map.removeLayer(layer);
         });
-        setTimeout(() => {
-          this.drawableMap();
-          this.loadCaptureData(mapDiv);
-        }, 200);
+        // Rimuovo il vecchio drawControl se esiste
+        if (this.drawControl) {
+          this.map.removeControl(this.drawControl);
+          this.drawControl = null;
+        }
+        // Chiamo subito drawableMap dopo aver aggiornato i dati
+        this.loadCaptureData(mapDiv);
       }
     });
   }
@@ -76,8 +82,24 @@ export class MapLayerComponent implements AfterViewInit {
           maxZoom: 30
         }).addTo(this.map);
         this.map.setMaxZoom(30);
-        if (this.mapId === 'map2') {
+
+        if (this.mapId === 'map2')
           this.loadCaptureData(mapDiv);
+        else {
+          //search-bar per map1
+          if (isPlatformBrowser(this.platformId)) {
+            import('leaflet-search').then(() => {
+              const searchControl = new (this.L.Control as any).Search({
+                url: 'https://nominatim.openstreetmap.org/search?format=json&q={s}',
+                propertyName: 'display_name',   //campo del json con il nome
+                marker: false,                  //disabilita il marker automatico
+                propertyLoc: ['lat','lon'],     //campi lat e lon per la posizione
+                autoCollapse: true,             //chiude la barra di ricerca dopo il risultato
+                minLength: 2                    //min caratteri da inserire prima della ricerca
+              });
+              this.map.addControl(searchControl);
+            });
+          }
         }
       });
     }
@@ -90,9 +112,10 @@ export class MapLayerComponent implements AfterViewInit {
   //funzione per catturare i dati della mappa
   private onCapture(): any[] {
     const datiCatturati = [];
-    // Non serve recuperare il div, usiamo direttamente l'istanza della mappa
     if (isPlatformBrowser(this.platformId) && this.map) {
-      datiCatturati[0] = (this.map as any).getBounds();
+      // Se non ci sono bounds, uso quelli della mappa corrente
+      const bounds = (this.map as any).getBounds();
+      datiCatturati[0] = bounds ? bounds : null;
       datiCatturati[1] = (this.map as any).getCenter();
       datiCatturati[2] = (this.map as any).getZoom();
     } else {
@@ -101,7 +124,6 @@ export class MapLayerComponent implements AfterViewInit {
       datiCatturati[2] = null;
       console.warn(`Elemento mappa con id '${this.mapId}' non trovato o 'getBounds' non disponibile.`);
     }
-    console.log(datiCatturati);
     return datiCatturati;
   }
 
@@ -110,66 +132,74 @@ export class MapLayerComponent implements AfterViewInit {
       import('leaflet-draw').then(() => {
         this.featureGroup = new this.L.FeatureGroup();
         this.map.addLayer(this.featureGroup);
-        console.log('FeatureGroup creato:', this.featureGroup);
-
-        // Se ci sono dati di cattura, crea il rettangolo e aggiungilo al featureGroup
         const bounds = MapLayerComponent.captureData[0];
-        console.log('Bounds in drawableMap:', bounds);
-        if (bounds) {
-          const rectangle = this.L.rectangle(bounds, { color: "#080807ff", weight: 5, opacity: 0.4 });
-          this.featureGroup.addLayer(rectangle);
-          console.log('Rettangolo creato e aggiunto:', rectangle);
+            if (bounds) {
+              // Ottieni i quattro angoli dai bounds
+              const sw = bounds.getSouthWest();
+              const nw = bounds.getNorthWest ? bounds.getNorthWest() : this.L.latLng(bounds.getNorth(), bounds.getWest());
+              const ne = bounds.getNorthEast();
+              const se = bounds.getSouthEast ? bounds.getSouthEast() : this.L.latLng(bounds.getSouth(), bounds.getEast());
+              // Leaflet standard non ha getNorthWest/getSouthEast, quindi li calcolo manualmente
+              const north = bounds.getNorth();
+              const south = bounds.getSouth();
+              const east = bounds.getEast();
+              const west = bounds.getWest();
+              const points = [
+                this.L.latLng(north, west), // NW
+                this.L.latLng(north, east), // NE
+                this.L.latLng(south, east), // SE
+                this.L.latLng(south, west)  // SW
+              ];
+              // Crea il poligono rettangolare
+              const polygon = this.L.polygon(points, { color: "#080807ff", weight: 5, opacity: 0.4 });
+              this.featureGroup.addLayer(polygon);
         } else {
-          console.warn('Nessun bounds valido per rettangolo');
+          setTimeout(() => this.drawableMap(), 200);
+          console.warn('[drawableMap] Bounds non disponibili, retry...');
+          return;
         }
-
-        const drawControl = new this.L.Control.Draw({
-          draw: {
+        this.drawControl = new this.L.Control.Draw({
+          draw: {         //nessuna forma disegnabile manualmente        
             polygon: false,
             polyline: false,
             circle: false,
             marker: false,
             circlemarker: false,
-            rectangle: true
+            rectangle: false
           },
           edit: {
-            featureGroup: this.featureGroup //il gruppo dove hai aggiunto il rettangolo
+            featureGroup: this.featureGroup
           }
         });
-        this.map.addControl(drawControl);
-        console.log('DrawControl aggiunto:', drawControl);
+        this.map.addControl(this.drawControl);
+        this.map.on('draw:edited', (e: any) => {
+          e.layers.eachLayer((layer: any) => {
+            MapLayerComponent.captureData[0] = layer.getBounds();
+          });
+        });
       });
     }
   }
-
   //funzione per caricare i dati nella mappa di pre-calcolo
   private loadCaptureData(mapDiv: HTMLElement | null): void {
     if(isPlatformBrowser(this.platformId) && this.map &&
       typeof this.map.fitBounds == 'function' && MapLayerComponent.captureData[0]) {
-        if(isPlatformBrowser(this.platformId) && this.map &&
-          typeof this.map.fitBounds === 'function' && MapLayerComponent.captureData[0]) {
-          setTimeout(() => {
-            (this.map as any).fitBounds(MapLayerComponent.captureData[0]);
-            setTimeout(() => {
-              const minZoom = this.map.getMinZoom ? this.map.getMinZoom() : 1;
-              const newZoom = Math.max(minZoom, this.map.getZoom() - 1);
-              (this.map as any).setZoom(newZoom);
-            }, 300);
-          }, 100);
-        } else
-          console.warn(`Elemento mappa con id '${this.mapId}' non trovato, dati non validi o 'fitBounds' non disponibile.`);
+      setTimeout(() => {
+        (this.map as any).fitBounds(MapLayerComponent.captureData[0]);
+        setTimeout(() => {
+          const minZoom = this.map.getMinZoom ? this.map.getMinZoom() : 1;
+          const newZoom = Math.max(minZoom, this.map.getZoom() - 1);
+          (this.map as any).setZoom(newZoom);
+        }, 300);
+      }, 100);
+    } else {
+      console.warn(`Elemento mappa con id '${this.mapId}' non trovato, dati non validi o 'fitBounds' non disponibile.`);
     }
 
-    this.setPerimeters();
+    this.drawableMap();
   }
 
   private setPerimeters() {
-    // Ora la creazione del rettangolo è gestita solo in drawableMap
-    this.map.on('draw:edited', (e: any) => {
-      // e.layers contiene i layer modificati
-      e.layers.eachLayer((layer: any) => {
-      // layer.getBounds() ti dà i nuovi bounds
-      });
-    });
+    // Funzione vuota: la creazione del rettangolo è gestita solo in drawableMap
   }
 }
