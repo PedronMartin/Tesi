@@ -1,3 +1,16 @@
+# Green Rating Algorithm
+
+Green Rating Algorithm è un'applicazione web sviluppata in Angular che permette di selezionare, analizzare e visualizzare aree geografiche su mappa tramite Leaflet e OpenStreetMap. Il progetto integra:
+
+- **Selezione interattiva di zone**: l'utente può disegnare e modificare poligoni (inizialmente rettangolari) direttamente sulla mappa.
+- **Ricerca geografica**: tramite una search-bar integrata, è possibile cercare e localizzare indirizzi e luoghi sfruttando OSM Nominatim.
+- **Editing geometrico avanzato**: la toolbar Leaflet Draw consente di modificare, spostare o eliminare la zona selezionata, con gestione automatica dei controlli.
+- **Integrazione dati OSM**: la zona selezionata può essere usata per interrogare le API OSM e ottenere dati interni all'area.
+- **Architettura modulare**: il codice è organizzato in componenti Angular, con servizi condivisi per la comunicazione tra le mappe e gestione degli eventi.
+
+Questa repository è pensata per progetti di analisi ambientale, urbanistica, green rating e visualizzazione dati territoriali, con un'interfaccia moderna e responsive.
+
+---
 # Greenratingalgorithm
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.2.0.
