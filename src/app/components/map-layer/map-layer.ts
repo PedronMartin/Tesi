@@ -14,6 +14,7 @@ export class MapLayerComponent implements AfterViewInit {
   @Input() mapId: string = 'map';
   private static captureData: any[] = [];
   private L: any;
+  private featureGroup: any;
 
   //sottoscrizione eventlistener per la cattura
   private catturaSub!: Subscription;
@@ -34,7 +35,10 @@ export class MapLayerComponent implements AfterViewInit {
           if (!(layer instanceof this.L.TileLayer))
             this.map.removeLayer(layer);
         });
-        this.loadCaptureData(mapDiv);
+        setTimeout(() => {
+          this.drawableMap();
+          this.loadCaptureData(mapDiv);
+        }, 200);
       }
     });
   }
@@ -56,26 +60,13 @@ export class MapLayerComponent implements AfterViewInit {
 
   private initializeMap(mapDiv: HTMLElement | null): void {
 
-   /* //rimuove la mappa precedente se esiste
-    if(this.map && typeof this.map.remove === 'function')
-        this.map.remove();
-
-      //se il div ha già una mappa associata, la rimuovo (caso edge)
-      if((mapDiv as any)._leaflet_id) {
-        try {
-          L.map(mapDiv).remove();
-        } catch (e) {
-          //ignora errori se la mappa non esiste
-        }
-      }*/
-
     if (isPlatformBrowser(this.platformId)) {
       import('leaflet').then(L => {
         if (!mapDiv) {
           console.error('Impossibile trovare il div della mappa con id', this.mapId);
           return;
         }
-        this.L = L; //importo Leaflet globalmente
+        this.L = L;
         this.map = L.map(mapDiv, {
           center: [45.464664, 9.188540],
           zoom: 13
@@ -85,10 +76,6 @@ export class MapLayerComponent implements AfterViewInit {
           maxZoom: 30
         }).addTo(this.map);
         this.map.setMaxZoom(30);
-        //carico i dati solo per map2
-        /*la versione precedente con lo switch case che smistava e ordinava la chiamate non funziona in quanto
-          non verificava che la seconda mappa fosse adeguatamente caricata prima del load dei dati precedenti
-        */
         if (this.mapId === 'map2') {
           this.loadCaptureData(mapDiv);
         }
@@ -118,6 +105,43 @@ export class MapLayerComponent implements AfterViewInit {
     return datiCatturati;
   }
 
+  private drawableMap(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      import('leaflet-draw').then(() => {
+        this.featureGroup = new this.L.FeatureGroup();
+        this.map.addLayer(this.featureGroup);
+        console.log('FeatureGroup creato:', this.featureGroup);
+
+        // Se ci sono dati di cattura, crea il rettangolo e aggiungilo al featureGroup
+        const bounds = MapLayerComponent.captureData[0];
+        console.log('Bounds in drawableMap:', bounds);
+        if (bounds) {
+          const rectangle = this.L.rectangle(bounds, { color: "#080807ff", weight: 5, opacity: 0.4 });
+          this.featureGroup.addLayer(rectangle);
+          console.log('Rettangolo creato e aggiunto:', rectangle);
+        } else {
+          console.warn('Nessun bounds valido per rettangolo');
+        }
+
+        const drawControl = new this.L.Control.Draw({
+          draw: {
+            polygon: false,
+            polyline: false,
+            circle: false,
+            marker: false,
+            circlemarker: false,
+            rectangle: true
+          },
+          edit: {
+            featureGroup: this.featureGroup //il gruppo dove hai aggiunto il rettangolo
+          }
+        });
+        this.map.addControl(drawControl);
+        console.log('DrawControl aggiunto:', drawControl);
+      });
+    }
+  }
+
   //funzione per caricare i dati nella mappa di pre-calcolo
   private loadCaptureData(mapDiv: HTMLElement | null): void {
     if(isPlatformBrowser(this.platformId) && this.map &&
@@ -140,14 +164,12 @@ export class MapLayerComponent implements AfterViewInit {
   }
 
   private setPerimeters() {
-    if (isPlatformBrowser(this.platformId) && this.map) {
-      //crea rettangolo che traccia il perimetro della zona catturata
-      const bounds = MapLayerComponent.captureData[0];
-      if (bounds) {
-        const rectangle = this.L.rectangle(bounds, { color: "#080807ff", weight: 5 });
-        rectangle.addTo(this.map);
-      } else
-        console.warn("Dati di cattura non disponibili per tracciare il perimetro.");
-    }
+    // Ora la creazione del rettangolo è gestita solo in drawableMap
+    this.map.on('draw:edited', (e: any) => {
+      // e.layers contiene i layer modificati
+      e.layers.eachLayer((layer: any) => {
+      // layer.getBounds() ti dà i nuovi bounds
+      });
+    });
   }
 }
