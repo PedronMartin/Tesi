@@ -1,0 +1,17 @@
+<mat-card class="instructionCard" appearance="outlined">
+	<div class="card-content">
+		<header>
+			<div class="title-row">
+				<span class="card-title">{{number}}. {{title}}</span>
+				<img [src]="path" class="card-img">
+			</div>
+		</header>
+		<content>
+			<p class="card-text">{{longText}}</p>
+		</content>
+		<mat-card-footer class="more">
+			<mat-chip>More</mat-chip>
+			<button mat-chip (click)="onButtonClick()">{{button}}</button>
+		</mat-card-footer>
+	</div>
+</mat-card>
