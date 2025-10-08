@@ -39,8 +39,19 @@ def run_rule_3(edifici, alberi):
         return edifici.assign(visible_trees_count=0)
 
     #proiezione edifici e gli alberi nel sistema di coordinate corretto
-    edifici_proj = edifici[edifici['building'].notna()].to_crs("EPSG:32632")
-    alberi_proj = alberi[alberi['natural'].fillna('') == 'tree'].to_crs("EPSG:32632")
+    #se non c'è il crs va messo
+    if edifici.crs is None:
+        edifici.set_crs("EPSG:4326", inplace=True)
+    if alberi.crs is None:
+        alberi.set_crs("EPSG:4326", inplace=True)
+    if 'building' in edifici.columns:
+        edifici_proj = edifici[edifici['building'].notna()].to_crs("EPSG:32632")
+    else:
+        edifici_proj = edifici.to_crs("EPSG:32632")
+    if 'natural' in alberi.columns:
+        alberi_proj = alberi[alberi['natural'].fillna('') == 'tree'].to_crs("EPSG:32632")
+    else:
+        alberi_proj = alberi.to_crs("EPSG:32632")
 
     #inizializza un GeoDataFrame per i risultati basato sugli edifici riproiettati
     risultato_edifici = edifici_proj.copy()

@@ -23,11 +23,28 @@ def greenRatingAlgorithm():
         polygon = dati_ricevuti.get('polygon')
         
         # query per Overpass API
-        data = overpass_query(polygon)
+        if(polygon):
+            """
+            concateno i punti del poligono in una stringa formattata per Overpass
+            da client arrivano in formato json come lista di liste [[lat, lon], [lat, lon], ...]
+            a overpass dobbiamo mandare "lat lon lat lon ..."
+            """
+            poly_str = " ".join([f"{lat} {lon}" for lat, lon in polygon])
 
-        print(data)
+            # costruisco le query e le eseguo
+            buildings_query = build_query(0, poly_str)
+            edifici = overpass_query(buildings_query)
+            trees_query = build_query(1, poly_str)
+            alberi = overpass_query(trees_query)
+            green_areas_query = build_query(2, poly_str)
+            aree_verdi = overpass_query(green_areas_query)
+        else:
+            # http 400 bad request
+            return jsonify({'errore': 'Dati geometrici mancanti o non validi'}), 400
+
+
         # esecuzione degli algoritmi
-        result = run_full_analysis()
+        result = run_full_analysis(edifici, alberi, aree_verdi)
 
         # TODO: calcolo rating (?)
         print(result)
@@ -36,9 +53,9 @@ def greenRatingAlgorithm():
         risultato = {
             'messaggio': 'Analisi completata con successo.',
             'input_polygon': polygon,
-            'metriche': {"""
-                'edifici_trovati': result.get('edifici_trovati', 0),
-                'punteggio_finale_3_30_300': round(result.get('punteggio_finale_3_30_300', 0), 2),"""
+            'metriche': {
+                'edifici_trovati': 0,
+                'punteggio_finale_3_30_300': round(0, 2),
             }
         }
         
@@ -52,49 +69,82 @@ def greenRatingAlgorithm():
         return jsonify({'errore': f'Errore del server: {str(e)}'}), 500
 
 
-# funzione per eseguire la query a Overpass API
+# funzione per costruire la query a Overpass API in base al tipo di dato richiesto
 """
 la libreria python OSMnx è molto utile per lavorare con dati OSM, in particolare per un'analisi e visualizzazione avanzata,
 ossia quello che abbiamo fatto con geopandas negli algoritmi. Come database da cui solo estrapolare i dati OSM,
 Overpass API è più efficiente e veloce. Oltre a ciò, dava anche problemi di timeout e incompatibilità.
 """
-def overpass_query(polygon):
+def build_query(type, poly_str):
 
-    if polygon:
-        """
-        concateno i punti del poligono in una stringa formattata per Overpass
-        da client arrivano in formato json come lista di liste [[lat, lon], [lat, lon], ...]
-        a overpass dobbiamo mandare "lat lon lat lon ..."
-        """
-        poly_str = " ".join([f"{lat} {lon}" for lat, lon in polygon])
+    # type 0 = edifici, type 1 = alberi, type 2 = aree verdi
+    if type == 0:
         query = f"""
             [out:json][timeout:25];
             (
             way["building"](poly:"{poly_str}");
             relation["building"](poly:"{poly_str}");
+            );
+            out body;
+            >;
+            out skel qt;
+        """
+    elif type == 1:
+        query = f"""
+            [out:json][timeout:25];
+            (
+            node["natural"="tree"](poly:"{poly_str}");
+            node["natural"="tree_row"](poly:"{poly_str}");
+            way["natural"="tree"](poly:"{poly_str}");
+            );
+            out body;
+            >;
+            out skel qt;
+        """
+    elif type == 2:
+        query = f"""
+            [out:json][timeout:25];
+            (
             way["leisure"="park"](poly:"{poly_str}");
             way["leisure"="garden"](poly:"{poly_str}");
             way["landuse"="grass"](poly:"{poly_str}");
             way["landuse"="forest"](poly:"{poly_str}");
-            way["natural"="tree"](poly:"{poly_str}");
             way["natural"="wood"](poly:"{poly_str}");
-            node["natural"="tree"](poly:"{poly_str}");
-            node["natural"="tree_row"](poly:"{poly_str}");
             );
             out body;
             >;
             out skel qt;
         """
     else:
-        # http 400 bad request
-        return jsonify({'errore': 'Dati geometrici mancanti o non validi'}), 400
+        query = ""
+    return query
     
-    overpass_url = "https://overpass-api.de/api/interpreter"
-    response = requests.post(overpass_url, query)                   # se non va mettere data=query
-    response.raise_for_status()                                     # solleva un'eccezione per errori HTTP
-    result = response.json()                                        # dati OSM in formato JSON
-    return result
+
+def overpass_query(query):
+
+    # lista di endpoint alternativi per la richiesta (spesso sovvraccaricati)
+    overpass_endpoints = [
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.openstreetmap.ru/api/interpreter"
+    ]
+    import time
+    for url in overpass_endpoints:
+        try:
+            response = requests.post(url, query, timeout=120)
+            response.raise_for_status()
+            result = response.json()
+            return result
+        except requests.exceptions.Timeout:
+            print(f"Timeout su {url}, provo il prossimo endpoint...")
+            time.sleep(2)
+        except requests.exceptions.RequestException as e:
+            print(f"Warning: il seguente server è sovvraccarico o ha generato un errore ---> {url}: {e}")
+            time.sleep(2)
+    return jsonify({'errore': 'Tutti gli endpoint Overpass hanno fallito o sono in timeout'}), 504
 
 if __name__ == '__main__':
     # Esegue il server solo su localhost per sicurezza durante lo sviluppo.
     app.run(host='127.0.0.1', port=5000, debug=True)
+    # Esegue il server su tutte le interfacce, così anche altri utenti possono collegarsi
+    # app.run(host='0.0.0.0', port=5000, debug=True)

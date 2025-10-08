@@ -17,29 +17,33 @@
 
 #importazioni
 import geopandas as gpd
+from osm2geojson import json2geojson
 
 #importa le funzioni dagli script singoli
 from .regola3 import run_rule_3
 from .regola30 import run_rule_30
 from .regola300 import run_rule_300
 
-#nomi dei file di input e output
-buildings_filename = "./INPUT/Edifici.geojson"
-trees_filename = "./INPUT/Alberi.geojson"
-green_areas_filename = "./INPUT/Areeverdi.geojson"
+# nomi dei file di input e output
 output_filename = "edifici_conformi_3_30_300.geojson"
 
 """
     Funzione principale che esegue l'analisi completa 3-30-300.
 """
-def run_full_analysis():
+def run_full_analysis(overpass_buildings, overpass_trees, overpass_green_areas):
     print("Avvio dell'analisi completa 3-30-300...")
     
     #carica i dati una sola volta
     try:
-        edifici = gpd.read_file(buildings_filename)
-        alberi = gpd.read_file(trees_filename)
-        aree_verdi = gpd.read_file(green_areas_filename)
+        geojson_buildings = json2geojson(overpass_buildings)
+        edifici = gpd.GeoDataFrame.from_features(geojson_buildings["features"])
+
+        geojson_trees = json2geojson(overpass_trees)
+        alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"])
+
+        geojson_green_areas = json2geojson(overpass_green_areas)
+        aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"])
+        
     except Exception as e:
         print(f"Errore nel caricamento dei file: {e}")
         return

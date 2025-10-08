@@ -30,6 +30,10 @@ def run_rule_300(edifici, aree_verdi):
         return edifici.assign(score_300=0)
 
     #proiezione edifici e aree verdi nel sistema di coordinate corretto (metri)
+    if edifici.crs is None:
+        edifici.set_crs("EPSG:4326", inplace=True)
+    if aree_verdi.crs is None:
+        aree_verdi.set_crs("EPSG:4326", inplace=True)
     edifici_proj = edifici.to_crs("EPSG:32632")
     aree_verdi_proj = aree_verdi.to_crs("EPSG:32632")
 

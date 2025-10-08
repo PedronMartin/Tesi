@@ -37,6 +37,54 @@ yarn-error.log
 testem.log
 /typings
 
+# Cache e file temporanei generici
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.bak
+*.tmp
+*.cache
+*.log
+*.pid
+*.seed
+*.pid.lock
+*.sqlite3
+*.db
+*.tgz
+*.tar.gz
+*.zip
+*.rar
+*.7z
+*.gz
+*.out
+*.old
+*.orig
+*.save
+*.swo
+*.swn
+*~
+node_modules/
+dist/
+build/
+tmp/
+cache/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.env*
+.vscode/
+.idea/
+.history/
+coverage/
+test-results/
+test-output/
+logs/
+debug/
+error/
+
 # System files
 .DS_Store
 Thumbs.db
@@ -45,13 +93,6 @@ Thumbs.db
 Server/venv/
 Server/__pycache__/
 Server/**/*.pyc
-
-# Cache e file temporanei Python
-Server/cache/
-venv/
-.venv/
-.coverage
-htmlcov/
 
 # Node.js (Angular)
 application/node_modules/
