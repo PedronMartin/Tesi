@@ -2,7 +2,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
-from Algoritmi import run_full_analysis
+from Algoritmi.analizzatore_centrale import run_full_analysis
 # Non serve modificare sys.path se "algoritmi" è nella stessa cartella
 
 
@@ -25,10 +25,12 @@ def greenRatingAlgorithm():
         # query per Overpass API
         data = overpass_query(polygon)
 
+        print(data)
         # esecuzione degli algoritmi
         result = run_full_analysis()
 
         # TODO: calcolo rating (?)
+        print(result)
 
         # impacchettamento risposta
         risultato = {
@@ -56,24 +58,32 @@ la libreria python OSMnx è molto utile per lavorare con dati OSM, in particolar
 ossia quello che abbiamo fatto con geopandas negli algoritmi. Come database da cui solo estrapolare i dati OSM,
 Overpass API è più efficiente e veloce. Oltre a ciò, dava anche problemi di timeout e incompatibilità.
 """
-def overpass_query(data):
+def overpass_query(polygon):
 
-    if data:
+    if polygon:
         """
         concateno i punti del poligono in una stringa formattata per Overpass
         da client arrivano in formato json come lista di liste [[lat, lon], [lat, lon], ...]
         a overpass dobbiamo mandare "lat lon lat lon ..."
         """
-        poly_str = " ".join([f"{lat} {lon}" for lat, lon in data])
+        poly_str = " ".join([f"{lat} {lon}" for lat, lon in polygon])
         query = f"""
-        [out:json][timeout:25];
-        (
+            [out:json][timeout:25];
+            (
             way["building"](poly:"{poly_str}");
             relation["building"](poly:"{poly_str}");
-        );
-        out body;
-        >;
-        out skel qt;
+            way["leisure"="park"](poly:"{poly_str}");
+            way["leisure"="garden"](poly:"{poly_str}");
+            way["landuse"="grass"](poly:"{poly_str}");
+            way["landuse"="forest"](poly:"{poly_str}");
+            way["natural"="tree"](poly:"{poly_str}");
+            way["natural"="wood"](poly:"{poly_str}");
+            node["natural"="tree"](poly:"{poly_str}");
+            node["natural"="tree_row"](poly:"{poly_str}");
+            );
+            out body;
+            >;
+            out skel qt;
         """
     else:
         # http 400 bad request

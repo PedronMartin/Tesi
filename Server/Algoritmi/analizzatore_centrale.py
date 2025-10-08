@@ -19,9 +19,9 @@
 import geopandas as gpd
 
 #importa le funzioni dagli script singoli
-from regola3 import run_rule_3
-from regola30 import run_rule_30
-from regola300 import run_rule_300
+from .regola3 import run_rule_3
+from .regola30 import run_rule_30
+from .regola300 import run_rule_300
 
 #nomi dei file di input e output
 buildings_filename = "./INPUT/Edifici.geojson"
