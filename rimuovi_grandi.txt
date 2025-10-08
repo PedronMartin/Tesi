@@ -1,2 +1,0 @@
-Server/cache/
-Server/venv/

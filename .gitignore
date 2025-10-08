@@ -46,6 +46,13 @@ Server/venv/
 Server/__pycache__/
 Server/**/*.pyc
 
+# Cache e file temporanei Python
+Server/cache/
+venv/
+.venv/
+.coverage
+htmlcov/
+
 # Node.js (Angular)
 application/node_modules/
 application/dist/
