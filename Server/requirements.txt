@@ -1,0 +1,6 @@
+flask
+flask-cors
+requests
+geopandas
+
+# per installare, usa "pip install -r requirements.txt"
