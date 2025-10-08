@@ -145,6 +145,7 @@ def overpass_query(query):
 
 if __name__ == '__main__':
     # Esegue il server solo su localhost per sicurezza durante lo sviluppo.
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    #app.run(host='127.0.0.1', port=5000, debug=True)
     # Esegue il server su tutte le interfacce, così anche altri utenti possono collegarsi
     # app.run(host='0.0.0.0', port=5000, debug=True)
+    pass
