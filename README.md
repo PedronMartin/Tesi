@@ -8,7 +8,22 @@ Green Rating Algorithm è un'applicazione web sviluppata in Angular che permette
 - **Integrazione dati OSM**: la zona selezionata può essere usata per interrogare le API OSM e ottenere dati interni all'area.
 - **Architettura modulare**: il codice è organizzato in componenti Angular, con servizi condivisi per la comunicazione tra le mappe e gestione degli eventi.
 
+
 Questa repository è pensata per progetti di analisi ambientale, urbanistica, green rating e visualizzazione dati territoriali, con un'interfaccia moderna e responsive.
+
+## Lato Server
+
+- **Backend Python robusto**: gestione avanzata degli errori, conversione automatica da Overpass JSON a GeoJSON, fix per colonne mancanti e dati sporchi.
+- **Gestione CRS**: tutti i GeoDataFrame ora hanno il CRS impostato e vengono riproiettati senza errori.
+- **Fix colonne mancanti**: controllo e gestione delle colonne 'building', 'natural', ecc. per evitare crash con dati incompleti.
+- **Endpoint multipli Overpass**: il server prova più endpoint Overpass e gestisce i timeout in modo automatico.
+- **Supporto multiutente**: il backend Flask può essere avviato su tutte le interfacce (`0.0.0.0`) per permettere l'accesso da altri dispositivi in rete.
+- **Conversione dati**: pipeline completa per passare da Overpass JSON a GeoDataFrame, con filtri robusti e compatibilità con gli algoritmi di rating.
+- **Best practice .gitignore e requirements**: aggiornati per evitare il tracciamento di cache, file temporanei e dipendenze inutili.
+- **Log errori e warning**: logging migliorato per distinguere tra errori bloccanti e warning di Overpass.
+- **Ottimizzazione algoritmi**: tutti gli algoritmi ora gestiscono dati sporchi, CRS, colonne mancanti e conversioni senza crash.
+
+Per dettagli tecnici sugli algoritmi o la struttura delle query, consulta i file Python nella cartella `Server/Algoritmi`.
 
 ---
 # Greenratingalgorithm
