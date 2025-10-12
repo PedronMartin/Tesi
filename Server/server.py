@@ -52,11 +52,10 @@ def greenRatingAlgorithm():
         # impacchettamento risposta
         risultato = {
             'messaggio': 'Analisi completata con successo.',
-            'input_polygon': polygon,
-            'metriche': {
-                'edifici_trovati': 0,
-                'punteggio_finale_3_30_300': round(0, 2),
-            }
+            'edifici': edifici,
+            'alberi': alberi,
+            'aree_verdi': aree_verdi,
+            'risultati': result
         }
         
         # ritorno al client

@@ -101,9 +101,9 @@ def run_full_analysis(overpass_buildings, overpass_trees, overpass_green_areas):
 
     #salva il risultato finale
     if not edifici_finali.empty:
-        edifici_finali.to_crs(edifici.crs).to_file(output_filename, driver='GeoJSON')
         print(f"\nAnalisi completata! Trovati {len(edifici_finali)} edifici che rispettano la regola 3-30-300.")
         print("Risultato salvato in:", output_filename)
+        return edifici_finali.to_crs(edifici.crs).to_file(output_filename, driver='GeoJSON')
     else:
         print("\nNessun edificio trovato che rispetta tutte e 3 le regole.")
 
