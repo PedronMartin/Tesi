@@ -1,11 +1,10 @@
-import { Output, EventEmitter } from '@angular/core';
-import {ChangeDetectionStrategy, Component} from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
+import {CommonModule} from '@angular/common';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatCardModule} from '@angular/material/card';
 import {MatChipsModule} from '@angular/material/chips';
-import { SharedService } from '../../shared';
-import { Router } from '@angular/router';
+import {SharedService} from '../../shared';
+import {Router} from '@angular/router';
 
 /**
  * @title Card with footer
@@ -21,6 +20,7 @@ import { Router } from '@angular/router';
 export class InstructionCard {
 
 	//campi
+	@Input() cardId: number = 0;
 	number?: number;
 	title: string = '';
 	longText: string = '';
@@ -31,17 +31,35 @@ export class InstructionCard {
 	constructor(private router: Router, private SharedService: SharedService) {};
 
 
-	private ngOnInit(){
-		this.number = 0;
+	ngOnInit(){
+		if(this.cardId == 0) this.setCard1();
+		else this.setCard2();
+	}
+
+	private setCard1(){
+		this.number = this.cardId + 1;
 		this.title = "Cattura";
 		this.longText = "Cattura: una volta che hai individuato la zona che ti interessa analizzare, puoi catturare l'immagine cliccando sul pulsante 'Cattura'.";
 		this.path = "assets/cattura.svg";
 		this.button = "Cattura";
 	}
 
+	private setCard2(){
+		this.number = this.cardId + 1;
+		this.title = "Analizza";
+		this.longText = "Analizza: dopo aver selezionato l'area di interesse, puoi richiedere l'analisi";
+		this.path = "assets/calcola.svg";
+		this.button = "Analizza";
+	}
+
 	onButtonClick() {
-		/* TODO: gestire il click sul bottone in base all'attuale contenuto della card */
 		//notifico l'elemento shared per catturare i dati della mappa
-		this.SharedService.triggerCattura();
+		if(this.cardId == 0)
+			this.SharedService.triggerCattura();
+		else{
+			this.SharedService.catturaPoligono$.next();
+			this.SharedService.serverRequest();
+		}
+			//this.SharedService.serverRequest(); --- IGNORE ---
 	}
 }

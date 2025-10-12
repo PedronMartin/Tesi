@@ -22,7 +22,7 @@ export class CatturaPage {
 
   //prelevo i dati dal servizio di condivisione
   ngOnInit() {
-    this.dati = this.sharedService.get();
+    //this.dati = this.sharedService.get();
   }
 
 }

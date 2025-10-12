@@ -13,6 +13,8 @@
             - bisogna controllare se il buffer di 300 metri parte dal centro dell'edificio oppure dal perimetro (che sarebbe la versione desiderata).
             - forse bisogna aggiungere già qui il calcolo del percorso per non sovvraccaricare il frontend con Leaflet;
             - decidere se contare proprio il numero di aree verdi (e dare più peso alla regola) oppure come fatto fermare la ricerca una volta che se ne trova uno.
+            - in questo momento la ricerca delle aree verdi viene fatta solo sulla zona selezionata in Angular, anche se ci potrebbero essere
+                aree verdi nei 300 metri fuori dalla zona selezionata.
 """
 
 # importazioni

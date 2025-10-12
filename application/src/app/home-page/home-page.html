@@ -4,11 +4,10 @@
 
   <app-map-layer [mapId] = "'map1'"></app-map-layer>
 
-  <instructionCard></instructionCard>
+  <instructionCard [cardId]="0"></instructionCard>
 
   <div *ngIf="mostraCattura" id="catturaSection">
     <app-map-layer class="map" [mapId] = "'map2'"></app-map-layer>
-    <instructionCard></instructionCard>
+    <instructionCard [cardId]="1"></instructionCard>
   </div>
-
 </div>

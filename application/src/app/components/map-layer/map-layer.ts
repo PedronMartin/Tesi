@@ -14,11 +14,13 @@ export class MapLayerComponent implements AfterViewInit {
   //campi
   @Input() mapId: string = 'map';
   private static captureData: any[] = [];
+  private static polygonData: number[][] = [];
   private L: any;
   private featureGroup: any;
 
-  //sottoscrizione eventlistener per la cattura
+  //sottoscrizione eventlistener per le catture
   private catturaSub!: Subscription;
+  private catturaPoligonoSub!: Subscription;
   private map: any;
   //servizio di condivisione dati
   constructor(@Inject(PLATFORM_ID) private platformId: Object, private SharedService: SharedService) { }
@@ -47,12 +49,20 @@ export class MapLayerComponent implements AfterViewInit {
         this.loadCaptureData(mapDiv);
       }
     });
+
+    this.catturaPoligonoSub = this.SharedService.catturaPoligono$.subscribe(() => {
+      if(this.mapId == 'map2') {
+        MapLayerComponent.polygonData = [];
+        MapLayerComponent.polygonData = this.capturePolygon();
+        this.SharedService.setPolygonData(MapLayerComponent.polygonData);
+        this.SharedService.serverRequest();
+      }
+    });
   }
 
   ngOnDestroy() {
-    if (this.catturaSub) {
-      this.catturaSub.unsubscribe();
-    }
+    if(this.catturaSub) this.catturaSub.unsubscribe();
+    if(this.catturaPoligonoSub) this.catturaPoligonoSub.unsubscribe();
   }
 
   //appena caricato il layer della mappa, andiamo a capire di quale si tratta
@@ -199,7 +209,23 @@ export class MapLayerComponent implements AfterViewInit {
     this.drawableMap();
   }
 
-  private setPerimeters() {
-    // Funzione vuota: la creazione del rettangolo è gestita solo in drawableMap
+  private capturePolygon(): number[][] {
+    const polygonCoords: number[][] = [];
+    if (isPlatformBrowser(this.platformId) && this.map && this.featureGroup) {
+      this.featureGroup.eachLayer((layer: any) => {
+        if (layer instanceof this.L.Polygon) {
+          const latLngs = layer.getLatLngs()[0]; // Ottieni i vertici del poligono
+          latLngs.forEach((latLng: any) => {
+            polygonCoords.push([latLng.lat, latLng.lng]);
+          });
+        }
+      });
+      if (polygonCoords.length === 0) {
+        console.warn('Nessun poligono trovato nel featureGroup.');
+      }
+    } else {
+      console.warn(`Elemento mappa con id '${this.mapId}' non trovato o 'featureGroup' non disponibile.`);
+    }
+    return polygonCoords;
   }
 }
