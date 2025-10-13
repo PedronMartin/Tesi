@@ -122,6 +122,7 @@ def run_full_analysis(overpass_buildings, overpass_trees, overpass_green_areas):
         #.to_file(output_filename, driver='GeoJSON')
     else:
         logger.info("Nessun edificio trovato che rispetta tutte e 3 le regole.")
+        return gpd.GeoDataFrame(columns=edifici.columns, crs=edifici.crs, geometry='geometry')
 
 #main rule
 if __name__ == "__main__":
