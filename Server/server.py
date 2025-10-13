@@ -45,28 +45,20 @@ def greenRatingAlgorithm():
 
         # esecuzione degli algoritmi
         result = run_full_analysis(edifici, alberi, aree_verdi)
-        if result is not None:
-            geojson_str = result.to_json()
-            return Response(geojson_str, mimetype="application/json")
-        else:
-            return jsonify({"error": "Nessun risultato"}), 400
+        edifici_geojson = edifici.to_json()
+        alberi_geojson = alberi.to_json()
+        aree_verdi_geojson = aree_verdi.to_json()
+        risultati_geojson = result.to_json() if result is not None else None
 
-        """
-        # TODO: calcolo rating (?)
-        print(result)
-
-        # impacchettamento risposta
         risultato = {
             'messaggio': 'Analisi completata con successo.',
-            'edifici': edifici,
-            'alberi': alberi,
-            'aree_verdi': aree_verdi,
-            'risultati': result
+            'edifici': edifici_geojson,
+            'alberi': alberi_geojson,
+            'aree_verdi': aree_verdi_geojson,
+            'risultati': risultati_geojson
         }
-        
-        # ritorno al client
+
         return jsonify(risultato), 200
-        """
 
     except Exception as e:
         # logga l'errore completo per il debug lato server
