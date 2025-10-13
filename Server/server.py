@@ -48,7 +48,10 @@ def greenRatingAlgorithm():
         edifici_geojson = edifici.to_json()
         alberi_geojson = alberi.to_json()
         aree_verdi_geojson = aree_verdi.to_json()
-        risultati_geojson = result.to_json() if result is not None else None
+        if result is not None and hasattr(result, 'to_json'):
+            risultati_geojson = result.to_json()
+        else:
+            risultati_geojson = '{"type": "FeatureCollection", "features": []}'
 
         risultato = {
             'messaggio': 'Analisi completata con successo.',
