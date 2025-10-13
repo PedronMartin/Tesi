@@ -10,6 +10,7 @@ export class SharedService {
   /*TODO: vedere come tipizzare meglio in quanto non so come effettivamente passare i dati per caricare la stessa mappa*/
   private CaptureZone: any[] = [];
   private PolygonData: number[][] = [];
+  private responseData: any;
 
   //Subject per notificare la richiesta di cattura (notificaCattura per la prima mappa, catturaPoligono per la seconda)
   public notificaCattura$ = new Subject<void>();
@@ -42,20 +43,23 @@ export class SharedService {
     this.notificaCattura$.next();
   }
 
+  //metodo per ricevere i risultati del calcolo dal server
+  getResponseData() {
+    return this.responseData;
+  }
+
   // metodo per inviare la richiesta di calcolo al server
   serverRequest() {
-
-    //istanzio la classe che gestisce la connessione con il server e le richieste d'ora in avanti
-    //this.serverContact.runFullAnalysis(this.PolygonData);
-
     this.serverContact.runFullAnalysis(this.PolygonData).subscribe(
-      response => console.log("Risposta dal server:", response),
+      response => {
+        this.responseData = response;
+        console.log("Risposta dal server:", response);
+        setTimeout(() => {
+          this.router.navigate(['/calcolo']);
+        }, 100);
+      },
       error => console.error("Errore:", error)
     );
-
-    //TODO: cambio pagina
-    //this.router.navigate(['/result']);
-    this.router.navigate(['/calcolo']);
   }
 
   /* TODO:
@@ -64,20 +68,3 @@ export class SharedService {
   dato che il poligono è modificabile. Inoltre, aggiungere un testo che esplicita il fatto che il calcolo avviene sui dati della seconda mappa e non della prima
   */
 }
-
-/*// src/app/map-layer/map-layer.component.ts
-
-import { GeoAnalysisService } from './geo-analysis.service'; // Importa il service
-
-// ...
-
-export class MapLayerComponent implements AfterViewInit {
-    // ... variabili come map, faseCorrente, risultatoCalcolo ...
-
-    constructor(
-        // ... (altre iniezioni come PLATFORM_ID)
-        private geoAnalysisService: GeoAnalysisService // Iniettato qui!
-    ) { }
-
-    // ...
-}*/

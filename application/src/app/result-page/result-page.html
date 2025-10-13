@@ -1,12 +1,10 @@
-<p>cattura-page works!</p>
-<p>{{ dati | json }}</p>
+<div class="main-content">
+  
+  <app-toolbar class="toolbar"></app-toolbar>
 
-<app-toolbar></app-toolbar>
+  <app-map-layer [mapId] = "'map1'"></app-map-layer>
 
-<app-map-layer id="map"></app-map-layer>
+  <instructionCard [cardId]="0"></instructionCard>
 
-<div style="text-align:center;">
-  <p>Istruzioni d'uso</p>
+  <p id="risultati"></p>
 </div>
-
-<app-inst-card-list></app-inst-card-list>

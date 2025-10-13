@@ -1,28 +1,37 @@
-import { Component } from '@angular/core';
+import { Component, Inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { SharedService } from '../shared';
-import { JsonPipe } from '@angular/common';
 import { Toolbar } from "../components/toolbar/toolbar";
 import { MapLayerComponent } from "../components/map-layer/map-layer";
-import { InstCardList } from '../components/inst-card-list/inst-card-list';
+import { InstructionCard } from '../components/instruction-card/instruction-card';
 
 @Component({
   selector: 'app-result-page',
-  imports: [JsonPipe, Toolbar, MapLayerComponent, InstCardList],
+  imports: [Toolbar, MapLayerComponent, InstructionCard],
   templateUrl: './result-page.html',
   styleUrl: './result-page.css'
 })
 export class ResultPage {
 
-  dati = [];
+  private dati: any = null;
 
   //servizio di condivisione dati
   private sharedService: SharedService;
 
-  constructor(sharedService: SharedService) { this.sharedService = sharedService; }
+  constructor(sharedService: SharedService, @Inject(PLATFORM_ID) private platformId: Object){ 
+    this.sharedService = sharedService;
+  }
 
   //prelevo i dati dal servizio di condivisione
   ngOnInit() {
-    //this.dati = this.sharedService.get();
+    this.dati = this.sharedService.getResponseData();
+  }
+
+  ngAfterViewInit() {
+    console.log(this.dati);
+    if (isPlatformBrowser(this.platformId)) {
+      document.getElementById("risultati")!.innerText = JSON.stringify(this.dati);
+    }
   }
 
 }

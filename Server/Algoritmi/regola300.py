@@ -20,44 +20,45 @@
 # importazioni
 import geopandas as gpd
 import pandas as pd
+import logging
 
 """
     Funzione che verifica la presenza di aree verdi entro 300 metri da ogni edificio.
 """
 def run_rule_300(edifici, aree_verdi):
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger("regola300")
 
     #controllo input
     if edifici.empty or aree_verdi.empty:
-        print("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
+        logger.warning("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
         return edifici.assign(score_300=0)
 
-    #proiezione edifici e aree verdi nel sistema di coordinate corretto (metri)
-    if edifici.crs is None:
-        edifici.set_crs("EPSG:4326", inplace=True)
-    if aree_verdi.crs is None:
-        aree_verdi.set_crs("EPSG:4326", inplace=True)
-    edifici_proj = edifici.to_crs("EPSG:32632")
-    aree_verdi_proj = aree_verdi.to_crs("EPSG:32632")
+    try:
+        if edifici.crs is None:
+            edifici.set_crs("EPSG:4326", inplace=True)
+        if aree_verdi.crs is None:
+            aree_verdi.set_crs("EPSG:4326", inplace=True)
+        edifici_proj = edifici.to_crs("EPSG:32632")
+        aree_verdi_proj = aree_verdi.to_crs("EPSG:32632")
 
-    #crea una copia degli edifici per il buffer e aggiunge una colonna per l'indice originale
-    edifici_buffer = edifici_proj.copy()
-    edifici_buffer['geometry'] = edifici_buffer.geometry.buffer(300)
-    edifici_buffer['original_index'] = edifici_buffer.index
+        edifici_buffer = edifici_proj.copy()
+        edifici_buffer['geometry'] = edifici_buffer.geometry.buffer(300)
+        edifici_buffer['original_index'] = edifici_buffer.index
 
-    #esegue una unione spaziale (spatial join) per trovare gli edifici con aree verdi vicine
-    #how="inner" garantisce che vengano considerate solo le intersezioni
-    join_result = gpd.sjoin(edifici_buffer, aree_verdi_proj, how="inner", predicate='intersects')
+        join_result = gpd.sjoin(edifici_buffer, aree_verdi_proj, how="inner", predicate='intersects')
 
-    #inizializza il GeoDataFrame finale con la colonna del punteggio
-    risultato_finale = edifici.copy()
-    risultato_finale['score_300'] = 0
-    
-    #aggiorna il punteggio solo per gli edifici che hanno superato il test
-    if not join_result.empty:
-        #ottiene gli indici univoci degli edifici che intersecano un'area verde
-        soddisfatti_index = join_result['original_index'].unique()
-        #assegna il punteggio di 1 a questi edifici
-        risultato_finale.loc[soddisfatti_index, 'score_300'] = 1
+        risultato_finale = edifici.copy()
+        risultato_finale['score_300'] = 0
+
+        if not join_result.empty:
+            soddisfatti_index = join_result['original_index'].unique()
+            risultato_finale.loc[soddisfatti_index, 'score_300'] = 1
+    except Exception as e:
+        logger.error(f"Errore nel calcolo della regola 300: {e}")
+        return edifici.assign(score_300=0)
+
+    return risultato_finale
 
     return risultato_finale
 

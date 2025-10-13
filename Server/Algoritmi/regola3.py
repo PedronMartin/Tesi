@@ -12,6 +12,7 @@
 #importazioni
 from shapely.geometry import LineString
 import pandas as pd
+import logging
 
 """
     Funzione che verifica se la linea di vista da un albero a un edificio è bloccata.
@@ -32,32 +33,37 @@ def is_unobstructed(tree, building, all_buildings_gdf):         # TODO: modifica
     Funzione che calcola il numero di alberi visibili da ogni edificio
 """
 def run_rule_3(edifici, alberi):
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger("regola3")
 
     #controllo input
     if edifici.empty or alberi.empty:
-        print("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
+        logger.warning("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
         return edifici.assign(visible_trees_count=0)
 
     #proiezione edifici e gli alberi nel sistema di coordinate corretto
-    #se non c'è il crs va messo
-    if edifici.crs is None:
-        edifici.set_crs("EPSG:4326", inplace=True)
-    if alberi.crs is None:
-        alberi.set_crs("EPSG:4326", inplace=True)
-    if 'building' in edifici.columns:
-        edifici_proj = edifici[edifici['building'].notna()].to_crs("EPSG:32632")
-    else:
-        edifici_proj = edifici.to_crs("EPSG:32632")
-    if 'natural' in alberi.columns:
-        alberi_proj = alberi[alberi['natural'].fillna('') == 'tree'].to_crs("EPSG:32632")
-    else:
-        alberi_proj = alberi.to_crs("EPSG:32632")
+    try:
+        if edifici.crs is None:
+            edifici.set_crs("EPSG:4326", inplace=True)
+        if alberi.crs is None:
+            alberi.set_crs("EPSG:4326", inplace=True)
+        if 'building' in edifici.columns:
+            edifici_proj = edifici[edifici['building'].notna()].to_crs("EPSG:32632")
+        else:
+            edifici_proj = edifici.to_crs("EPSG:32632")
+        if 'natural' in alberi.columns:
+            alberi_proj = alberi[alberi['natural'].fillna('') == 'tree'].to_crs("EPSG:32632")
+        else:
+            alberi_proj = alberi.to_crs("EPSG:32632")
+    except Exception as e:
+        logger.error(f"Errore nella proiezione dei dati: {e}")
+        return edifici.assign(visible_trees_count=0)
 
     #inizializza un GeoDataFrame per i risultati basato sugli edifici riproiettati
     risultato_edifici = edifici_proj.copy()
     risultato_edifici['visible_trees_count'] = 0
 
-    print("Avvio del calcolo della linea di vista...")
+    logger.info("Avvio del calcolo della linea di vista...")
     
     #itera su ogni edificio
     for idx, edificio in risultato_edifici.iterrows():

@@ -17,38 +17,39 @@
 import geopandas as gpd
 from shapely.ops import unary_union
 import pandas as pd
+import logging
 
 """
     Funzione che calcola la percentuale di copertura arborea per una data area.
 """
-def run_rule_30(edifici, alberi):           #probabilmente va aggiunto qualcosa riguardante le geometrie della zona, magari i punti di confine che creano una geometria
+def run_rule_30(edifici, alberi):
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger("regola30")
 
     #controllo input
     if edifici.empty or alberi.empty:
-        print("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
+        logger.warning("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
         return 0.0
 
-    #proiezione edifici e gli alberi nel sistema di coordinate corretto
-    edifici_proj = edifici.to_crs("EPSG:32632")
-    alberi_proj = alberi.to_crs("EPSG:32632")
+    try:
+        edifici_proj = edifici.to_crs("EPSG:32632")
+        alberi_proj = alberi.to_crs("EPSG:32632")
 
-    #calcolo dell'area totale coperta dagli alberi
-    #crea un buffer di 2 metri attorno a ogni albero
-    alberi_buffer = alberi_proj.buffer(2)
-    #unisce i buffer e calcola l'area totale
-    trees_total_area = unary_union(alberi_buffer.geometry).area
+        #calcolo dell'area totale coperta dagli alberi
+        alberi_buffer = alberi_proj.buffer(2)
+        trees_total_area = unary_union(alberi_buffer.geometry).area
 
-    #calcolo dell'area totale della zona di studio
-    #unisce gli edifici e gli alberi in un unico GeoDataFrame per definire l'area di studio
-    combined_geometries = pd.concat([edifici_proj, alberi_proj], ignore_index=True)
+        #calcolo dell'area totale della zona di studio
+        combined_geometries = pd.concat([edifici_proj, alberi_proj], ignore_index=True)
+        study_area_geometry = unary_union(combined_geometries.geometry)
+        study_area = study_area_geometry.area
 
-    #unisce le geometrie per formare un unico poligono e calcolarne l'area
-    study_area_geometry = unary_union(combined_geometries.geometry)
-    study_area = study_area_geometry.area
+        #calcola la percentuale di copertura
+        percentage = (trees_total_area / study_area) * 100
+    except Exception as e:
+        logger.error(f"Errore nel calcolo della copertura arborea: {e}")
+        return 0.0
 
-    #calcola la percentuale di copertura
-    percentage = (trees_total_area / study_area) * 100
-    
     return percentage
 
 #Esempio di utilizzo singolo dell'algoritmo
