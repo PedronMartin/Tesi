@@ -1,5 +1,5 @@
 # import
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import requests
 from Algoritmi.analizzatore_centrale import run_full_analysis
@@ -45,7 +45,13 @@ def greenRatingAlgorithm():
 
         # esecuzione degli algoritmi
         result = run_full_analysis(edifici, alberi, aree_verdi)
+        if result is not None:
+            geojson_str = result.to_json()
+            return Response(geojson_str, mimetype="application/json")
+        else:
+            return jsonify({"error": "Nessun risultato"}), 400
 
+        """
         # TODO: calcolo rating (?)
         print(result)
 
@@ -60,6 +66,7 @@ def greenRatingAlgorithm():
         
         # ritorno al client
         return jsonify(risultato), 200
+        """
 
     except Exception as e:
         # logga l'errore completo per il debug lato server
