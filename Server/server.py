@@ -34,6 +34,8 @@ def greenRatingAlgorithm():
             # costruisco le query e le eseguo
             buildings_query = build_query(0, poly_str)
             edifici = overpass_query(buildings_query)
+            if edifici is None:
+                return jsonify({'errore': 'Tutti gli endpoint Overpass hanno fallito o sono in timeout'}), 504
             trees_query = build_query(1, poly_str)
             alberi = overpass_query(trees_query)
             green_areas_query = build_query(2, poly_str)
@@ -142,7 +144,7 @@ def overpass_query(query):
         except requests.exceptions.RequestException as e:
             print(f"Warning: il seguente server è sovvraccarico o ha generato un errore ---> {url}: {e}")
             time.sleep(2)
-    return jsonify({'errore': 'Tutti gli endpoint Overpass hanno fallito o sono in timeout'}), 504
+    return None
 
 if __name__ == '__main__':
     # Esegue il server solo su localhost per sicurezza durante lo sviluppo.
