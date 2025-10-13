@@ -6,12 +6,12 @@ import { MapLayerComponent } from "../components/map-layer/map-layer";
 import { InstCardList } from '../components/inst-card-list/inst-card-list';
 
 @Component({
-  selector: 'app-cattura-page',
+  selector: 'app-result-page',
   imports: [JsonPipe, Toolbar, MapLayerComponent, InstCardList],
-  templateUrl: './cattura-page.html',
-  styleUrl: './cattura-page.css'
+  templateUrl: './result-page.html',
+  styleUrl: './result-page.css'
 })
-export class CatturaPage {
+export class ResultPage {
 
   dati = [];
 

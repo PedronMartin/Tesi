@@ -56,10 +56,7 @@ export class InstructionCard {
 		//notifico l'elemento shared per catturare i dati della mappa
 		if(this.cardId == 0)
 			this.SharedService.triggerCattura();
-		else{
+		else
 			this.SharedService.catturaPoligono$.next();
-			this.SharedService.serverRequest();
-		}
-			//this.SharedService.serverRequest(); --- IGNORE ---
 	}
 }

@@ -1,6 +1,7 @@
 import {Injectable} from '@angular/core';
 import * as S from "./server-contacter";
 import {Subject} from 'rxjs';
+import { Router } from '@angular/router';
 
 @Injectable({
   providedIn: 'root'
@@ -15,8 +16,10 @@ export class SharedService {
   public catturaPoligono$ = new Subject<void>();
 
   public onPolygonReady: (() => void) | null = null;
-
-  constructor(private serverContact: S.ServerContacter) {}
+  constructor(
+    private serverContact: S.ServerContacter,
+    private router: Router
+  ) {}
 
   setCaptureZone(val: any) {
     this.CaptureZone = val;
@@ -52,6 +55,7 @@ export class SharedService {
 
     //TODO: cambio pagina
     //this.router.navigate(['/result']);
+    this.router.navigate(['/calcolo']);
   }
 
   /* TODO:
