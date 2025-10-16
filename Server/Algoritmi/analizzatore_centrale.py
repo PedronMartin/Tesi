@@ -31,25 +31,10 @@ output_filename = "edifici_conformi_3_30_300.geojson"
 """
     Funzione principale che esegue l'analisi completa 3-30-300.
 """
-def run_full_analysis(overpass_buildings, overpass_trees, overpass_green_areas):
+def run_full_analysis(edifici, alberi, aree_verdi):
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("analizzatore_centrale")
     logger.info("Avvio dell'analisi completa 3-30-300...")
-
-    #carica i dati una sola volta
-    try:
-        geojson_buildings = json2geojson(overpass_buildings)
-        edifici = gpd.GeoDataFrame.from_features(geojson_buildings["features"])
-
-        geojson_trees = json2geojson(overpass_trees)
-        alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"])
-
-        geojson_green_areas = json2geojson(overpass_green_areas)
-        aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"])
-
-    except Exception as e:
-        logger.error(f"Errore nel caricamento dei file: {e}")
-        return
 
     logger.info(f"Numero totale di edifici nel dataset: {len(edifici)}")
     logger.info(f"Numero totale di alberi nel dataset: {len(alberi)}")

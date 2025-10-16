@@ -2,6 +2,8 @@
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import requests
+from osm2geojson import json2geojson
+import geopandas as gpd
 from Algoritmi.analizzatore_centrale import run_full_analysis
 # Non serve modificare sys.path se "algoritmi" è nella stessa cartella
 
@@ -44,22 +46,35 @@ def greenRatingAlgorithm():
             # http 400 bad request
             return jsonify({'errore': 'Dati geometrici mancanti o non validi'}), 400
 
+        # conversione dei dati da OSM a GeoDataFrame
+        try:
+            geojson_buildings = json2geojson(edifici)
+            edifici = gpd.GeoDataFrame.from_features(geojson_buildings["features"])
+
+            #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
+            #pertanto dobbiamo gestire la conversione in json di elementi Nulli
+            if(alberi is None):
+                alberi = gpd.GeoDataFrame() # GeoDataFrame vuoto
+            else:
+                geojson_trees = json2geojson(alberi)
+                alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"])
+
+            if(aree_verdi is None):
+                aree_verdi = gpd.GeoDataFrame() # GeoDataFrame vuoto
+            else:
+                geojson_green_areas = json2geojson(aree_verdi)
+                aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"])
+
+        except Exception as e:
+            return jsonify({'errore': f'Errore nella conversione in GeoDataFrame dei dati OSM: {e}'}), 500
 
         # esecuzione degli algoritmi
         result = run_full_analysis(edifici, alberi, aree_verdi)
+
+        # preparazione della risposta in formato GeoJSON
         edifici_geojson = edifici.to_json()
-
-        #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
-        #pertanto dobbiamo gestire la conversione in json di elementi Nulli
-        if(alberi is None):
-            alberi_geojson = '{"type": "FeatureCollection", "features": []}'
-        else:
-            alberi_geojson = alberi.to_json()
-
-        if(aree_verdi is None):
-            aree_verdi_geojson = '{"type": "FeatureCollection", "features": []}'
-        else:
-            aree_verdi_geojson = aree_verdi.to_json()
+        alberi_geojson = alberi.to_json()
+        aree_verdi_geojson = aree_verdi.to_json()
 
         if result is not None and hasattr(result, 'to_json'):
             risultati_geojson = result.to_json()
