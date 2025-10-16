@@ -144,7 +144,7 @@ def overpass_query(query):
         except requests.exceptions.RequestException as e:
             print(f"Warning: il seguente server è sovvraccarico o ha generato un errore ---> {url}: {e}")
             time.sleep(2)
-    return None
+    return jsonify({'errore': 'Tutti gli endpoint Overpass hanno fallito o sono in timeout'}), 504
 
 if __name__ == '__main__':
     # Esegue il server solo su localhost per sicurezza durante lo sviluppo.
