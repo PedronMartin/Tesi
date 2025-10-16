@@ -35,7 +35,7 @@ def greenRatingAlgorithm():
             buildings_query = build_query(0, poly_str)
             edifici = overpass_query(buildings_query)
             if edifici is None:
-                return jsonify({'errore': 'Tutti gli endpoint Overpass hanno fallito o sono in timeout'}), 504
+                return jsonify({'errore': 'Nessun edificio selezionato'}), 504
             trees_query = build_query(1, poly_str)
             alberi = overpass_query(trees_query)
             green_areas_query = build_query(2, poly_str)
@@ -48,8 +48,19 @@ def greenRatingAlgorithm():
         # esecuzione degli algoritmi
         result = run_full_analysis(edifici, alberi, aree_verdi)
         edifici_geojson = edifici.to_json()
-        alberi_geojson = alberi.to_json()
-        aree_verdi_geojson = aree_verdi.to_json()
+
+        #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
+        #pertanto dobbiamo gestire la conversione in json di elementi Nulli
+        if(alberi is None):
+            alberi_geojson = '{"type": "FeatureCollection", "features": []}'
+        else:
+            alberi_geojson = alberi.to_json()
+
+        if(aree_verdi is None):
+            aree_verdi_geojson = '{"type": "FeatureCollection", "features": []}'
+        else:
+            aree_verdi_geojson = aree_verdi.to_json()
+
         if result is not None and hasattr(result, 'to_json'):
             risultati_geojson = result.to_json()
         else:
@@ -144,7 +155,7 @@ def overpass_query(query):
         except requests.exceptions.RequestException as e:
             print(f"Warning: il seguente server è sovvraccarico o ha generato un errore ---> {url}: {e}")
             time.sleep(2)
-    return jsonify({'errore': 'Tutti gli endpoint Overpass hanno fallito o sono in timeout'}), 504
+    return None
 
 if __name__ == '__main__':
     # Esegue il server solo su localhost per sicurezza durante lo sviluppo.
