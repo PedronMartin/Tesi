@@ -54,10 +54,11 @@ def greenRatingAlgorithm():
             """ Garantisce che la colonna di geometria sia impostata correttamente
             e che il CRS sia presente, anche se GeoPandas ha fallito nel farlo
             con from_features. """
-            if 'geometry' in edifici.columns:
-                edifici = edifici.set_geometry('geometry') 
+            if not edifici.empty:
+                if edifici.geometry.name != 'geometry':
+                    edifici = edifici.set_geometry('geometry')
                 if edifici.crs is None:
-                    edifici = edifici.set_crs('EPSG:4326')
+                    edifici = edifici.set_crs('EPSG:4326', allow_override=True)
 
             #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
             #pertanto dobbiamo gestire la conversione in json di elementi Nulli
@@ -84,10 +85,15 @@ def greenRatingAlgorithm():
         alberi_geojson = alberi.to_json()
         aree_verdi_geojson = aree_verdi.to_json()
 
-        if result is not None and hasattr(result, 'to_json'):
-            risultati_geojson = result.to_json()
+        if result is None or result.empty:
+             risultati_geojson = '{"type": "FeatureCollection", "features": []}'
+        elif not hasattr(result, 'to_json'):
+             # Se non è GeoDataFrame, converti a stringa di errore (improbabile, ma sicuro)
+             app.logger.error("Il risultato non è un oggetto serializzabile!")
+             risultati_geojson = '{"type": "FeatureCollection", "features": []}'
         else:
-            risultati_geojson = '{"type": "FeatureCollection", "features": []}'
+             # Serializzazione del GeoDataFrame (Se fallisce qui, il problema è nel GDF stesso)
+             risultati_geojson = result.to_json()
 
         risultato = {
             'messaggio': 'Analisi completata con successo.',
