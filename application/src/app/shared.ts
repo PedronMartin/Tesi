@@ -53,7 +53,6 @@ export class SharedService {
     this.serverContact.runFullAnalysis(this.PolygonData).subscribe(
       response => {
         this.responseData = response;
-        console.log("Risposta dal server:", response);
         setTimeout(() => {
           this.router.navigate(['/calcolo']);
         }, 100);
