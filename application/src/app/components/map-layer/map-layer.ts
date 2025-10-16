@@ -17,11 +17,11 @@ export class MapLayerComponent implements AfterViewInit {
   private static polygonData: number[][] = [];
   private L: any;
   private featureGroup: any;
+  private map: any;
 
   //sottoscrizione eventlistener per le catture
   private catturaSub!: Subscription;
   private catturaPoligonoSub!: Subscription;
-  private map: any;
   //servizio di condivisione dati
   constructor(@Inject(PLATFORM_ID) private platformId: Object, private SharedService: SharedService) { }
 

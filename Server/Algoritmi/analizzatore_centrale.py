@@ -90,8 +90,8 @@ def run_full_analysis(edifici, alberi, aree_verdi):
         edifici_finali = edifici_intermedi.copy()
     else:
         logger.info("La regola 30 NON è soddisfatta, il risultato finale è 0.")
-        #crea un GeoDataFrame vuoto in modo corretto
-        edifici_finali = gpd.GeoDataFrame(columns=edifici.columns, crs=edifici.crs, geometry='geometry')
+        #crea un GeoDataFrame vuoto in modo corretto (con le colonne di edifici per avere uno standard)
+        edifici_finali = edifici.iloc[0:0].copy()
 
     #aggiungo le colonne di debug per l'output finale
     if not edifici_finali.empty:
@@ -107,7 +107,7 @@ def run_full_analysis(edifici, alberi, aree_verdi):
         #.to_file(output_filename, driver='GeoJSON')
     else:
         logger.info("Nessun edificio trovato che rispetta tutte e 3 le regole.")
-        return gpd.GeoDataFrame(columns=edifici.columns, crs=edifici.crs, geometry='geometry')
+        return edifici.iloc[0:0].copy()
 
 #main rule
 if __name__ == "__main__":
