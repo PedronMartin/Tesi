@@ -10,7 +10,7 @@ from Algoritmi.analizzatore_centrale import run_full_analysis
 
 app = Flask(__name__)
 # abilita CORS per permettere ad Angular (che è su un'altra porta) di chiamare l'API
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Endpoint per l'API
 @app.route('/api/greenRatingAlgorithm', methods=['POST'])
