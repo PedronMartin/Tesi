@@ -55,9 +55,9 @@ def greenRatingAlgorithm():
             e che il CRS sia presente, anche se GeoPandas ha fallito nel farlo
             con from_features. """
             if 'geometry' in edifici.columns:
-                edifici = edifici.set_geometry('geometry', inplace=True) 
+                edifici = edifici.set_geometry('geometry') 
                 if edifici.crs is None:
-                    edifici = edifici.set_crs('EPSG:4326', allow_override=True)
+                    edifici = edifici.set_crs('EPSG:4326')
 
             #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
             #pertanto dobbiamo gestire la conversione in json di elementi Nulli
