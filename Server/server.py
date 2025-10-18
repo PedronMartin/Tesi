@@ -80,10 +80,13 @@ def greenRatingAlgorithm():
         # esecuzione degli algoritmi
         result = run_full_analysis(edifici, alberi, aree_verdi)
 
-        # preparazione della risposta in formato GeoJSON
-        edifici_geojson = edifici.to_json()
-        alberi_geojson = alberi.to_json()
-        aree_verdi_geojson = aree_verdi.to_json()
+        # definiamo un GeoJSON vuoto standard da usare come fallback
+        empty_geojson_fallback = '{"type": "FeatureCollection", "features": []}'
+
+        # preparazione della risposta in formato GeoJSON (con gestione accurata dei casi particolari)
+        edifici_geojson = edifici.to_json() if not edifici.empty else empty_geojson_fallback
+        alberi_geojson = alberi.to_json() if not alberi.empty else empty_geojson_fallback
+        aree_verdi_geojson = aree_verdi.to_json() if not aree_verdi.empty else empty_geojson_fallback
 
         if result is None or result.empty:
              risultati_geojson = '{"type": "FeatureCollection", "features": []}'
