@@ -60,8 +60,6 @@ def run_rule_300(edifici, aree_verdi):
 
     return risultato_finale
 
-    return risultato_finale
-
 #Esempio di utilizzo singolo dell'algoritmo
 """edifici = gpd.read_file("./INPUT/Edifici.geojson")
 areeverdi = gpd.read_file("./INPUT/Areeverdi.geojson")

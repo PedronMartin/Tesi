@@ -74,7 +74,7 @@ def run_full_analysis(edifici, alberi, aree_verdi):
     logger.info("Intersezione dei risultati...")
 
     #filtro per la regola 3
-    edifici_conformi_3 = risultati_3[risultati_3['visible_trees_count'] > 0]
+    edifici_conformi_3 = risultati_3[risultati_3['visible_trees_count'] > 2]
 
     #filtro per la regola 300
     edifici_conformi_300 = risultati_300[risultati_300['score_300'] == 1]
