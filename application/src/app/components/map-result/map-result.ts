@@ -131,7 +131,7 @@ export class MapResult {
       console.error("Dati ricevuti (stringa):", this.dati['risultati']);
     }
 
-    const colors = ['#FF0000', '#FFA500', '#1626b8ff'];
+    const colors = ['#FF0000', '#ffee05ff', '#1626b8ff'];
     const labels = ['Edifici', 'Alberi', 'Aree Verdi'];
     for (let i = 0; i < 3; i++) {
       this.otherLoading(colors[i], labels[i]);
