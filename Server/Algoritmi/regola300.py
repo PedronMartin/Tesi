@@ -15,18 +15,25 @@
             - decidere se contare proprio il numero di aree verdi (e dare più peso alla regola) oppure come fatto fermare la ricerca una volta che se ne trova uno.
             - in questo momento la ricerca delle aree verdi viene fatta solo sulla zona selezionata in Angular, anche se ci potrebbero essere
                 aree verdi nei 300 metri fuori dalla zona selezionata.
+
+        SISTEMATI:
+            - CHIEDERE A PROFESSORE!
+            - in teoria nella regola originale sono considerati solo i parchi pubblici e 'grandi' (dobbiamo capire quanto);
+            - il buffer di 300 metri parte in automatico dal perimetro dell'edificio grazie a geopandas;
+            - considerato che farlo senza Leaflet ha un costo computazionale importante, e non c'è conflitto se li teniamo separati, optiamo per avere
+                una divisione tra il backend che valuta la regola (linea d'aria) e il frontend che mostra la realtà (percorso), chiaramente maggiore del primo;
+            - CHIEDERE A PROFESSORE! ---> la considererei una funzionalità avanzata, perchè richiede aggiunta di campi nel GeoJson che vanno in conflitto con altri usi;
+            - andiamo a gonfiare l'area di 300 metri dal bordo richiesto dal frontend, ma lo facciamo direttamente dove vengono fatte le query a Overpass;
 """
 
 # importazioni
 import geopandas as gpd
-import pandas as pd
 import logging
 
 """
     Funzione che verifica la presenza di aree verdi entro 300 metri da ogni edificio.
 """
 def run_rule_300(edifici, aree_verdi):
-    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("regola300")
 
     #controllo input

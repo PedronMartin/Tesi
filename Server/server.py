@@ -5,12 +5,20 @@ import requests
 from osm2geojson import json2geojson
 import geopandas as gpd
 from Algoritmi.analizzatore_centrale import run_full_analysis
-# Non serve modificare sys.path se "algoritmi" è nella stessa cartella
+import logging
+from shapely.geometry import Polygon
 
 
 app = Flask(__name__)
 # abilita CORS per permettere ad Angular (che è su un'altra porta) di chiamare l'API
 CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# configura il logging una sola volta per l'intera applicazione
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 # Endpoint per l'API
 @app.route('/api/greenRatingAlgorithm', methods=['POST'])
@@ -26,6 +34,10 @@ def greenRatingAlgorithm():
         
         # query per Overpass API
         if(polygon):
+            # aumento il poligono in base alla regola
+            buffered_polygon_300 = increasePolygon(polygon, 300)
+            buffered_polygon_3 = increasePolygon(polygon, 3)
+
             """
             concateno i punti del poligono in una stringa formattata per Overpass
             da client arrivano in formato json come lista di liste [[lat, lon], [lat, lon], ...]
@@ -33,14 +45,23 @@ def greenRatingAlgorithm():
             """
             poly_str = " ".join([f"{lat} {lon}" for lat, lon in polygon])
 
+            # controllo messo qui per fallback in caso di errore nel buffer con poly_str
+            if not buffered_polygon_300 or not buffered_polygon_3:
+                app.logger.warning(f"Impossibile creare il sovrapposizione per la regola 300 o 3: {e}. Uso il poligono di input.")
+                buffered_polygon_300 = poly_str
+                buffered_polygon_3 = poly_str
+                # TODO: eliminare questo errore se funziona
+                # ritorno di errore per prova funziona
+                return jsonify({'errore': 'Impossibile creare il buffer per la query Overpass'}), 500
+
             # costruisco le query e le eseguo
             buildings_query = build_query(0, poly_str)
             edifici = overpass_query(buildings_query)
             if edifici is None:
                 return jsonify({'errore': 'Nessun edificio selezionato'}), 504
-            trees_query = build_query(1, poly_str)
+            trees_query = build_query(1, buffered_polygon_3)
             alberi = overpass_query(trees_query)
-            green_areas_query = build_query(2, poly_str)
+            green_areas_query = build_query(2, buffered_polygon_300)
             aree_verdi = overpass_query(green_areas_query)
         else:
             # http 400 bad request
@@ -63,16 +84,16 @@ def greenRatingAlgorithm():
             #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
             #pertanto dobbiamo gestire la conversione in json di elementi Nulli
             if(alberi is None):
-                alberi = gpd.GeoDataFrame() # GeoDataFrame vuoto
+                alberi = gpd.GeoDataFrame(crs="EPSG:4326") # GeoDataFrame vuoto
             else:
                 geojson_trees = json2geojson(alberi)
-                alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"])
+                alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"], crs="EPSG:4326")
 
             if(aree_verdi is None):
-                aree_verdi = gpd.GeoDataFrame() # GeoDataFrame vuoto
+                aree_verdi = gpd.GeoDataFrame(crs="EPSG:4326") # GeoDataFrame vuoto
             else:
                 geojson_green_areas = json2geojson(aree_verdi)
-                aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"])
+                aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"], crs="EPSG:4326")
 
         except Exception as e:
             return jsonify({'errore': f'Errore nella conversione in GeoDataFrame dei dati OSM: {e}'}), 500
@@ -188,6 +209,41 @@ def overpass_query(query):
             print(f"Warning: il seguente server è sovvraccarico o ha generato un errore ---> {url}: {e}")
             time.sleep(2)
     return None
+
+# funzione per aumentare la dimensione del calcolo di una certa distanza, per comprendere gli elementi che rientrano nelle distanze ma non nel poligono
+def increasePolygon(polygon, rule):
+    try:
+        # Shapely Polygon vuole coordinate [(lon, lat)], quindi invertite rispetto a prima (simile a Leaflet)
+        poly_coords = [(lon, lat) for lat, lon in polygon]
+        
+        # crea un GeoDataFrame con il poligono di input
+        gdf_input = gpd.GeoDataFrame(
+            [{'geometry': Polygon(poly_coords)}], 
+            crs="EPSG:4326"
+        )
+
+        # TODO: definire meglio la visuale di una persona rispetto ad un albero per il calcolo della regola 3!!!
+        # definisco la dimensione del buffer in metri in base alla regola
+        if rule == 300:
+            bufferSize = 300  # buffer di 300 metri
+        elif rule == 3:
+            bufferSize = 50    # buffer di 50 metri
+        
+        # proietto in CRS metrico (UTM 32N), calcola buffer, riproietta in lat/lon
+        gdf_proj = gdf_input.to_crs("EPSG:32632")
+        gdf_proj_buffered = gdf_proj.buffer(bufferSize)
+        gdf_buffered_unproj = gdf_proj_buffered.to_crs("EPSG:4326")
+
+        # estraggo le coordinate (lon, lat) dal poligono bufferizzato
+        buffered_poly_geom = gdf_buffered_unproj.geometry.iloc[0]
+        
+        # converto in stringa "lat lon..." per Overpass
+        return " ".join([f"{lat} {lon}" for lon, lat in buffered_poly_geom.exterior.coords])
+
+    except Exception as e:
+        app.logger.warning(f"Impossibile creare il sovvra-Buffer per la regola 300 o 3: {e}. Uso il poligono di input.")
+        # Fallback: usa il poligono originale se il buffer fallisce
+        return None
 
 if __name__ == '__main__':
     # Esegue il server solo su localhost per sicurezza durante lo sviluppo.
