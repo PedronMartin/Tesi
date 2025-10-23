@@ -55,8 +55,6 @@ export class MapResult {
           bounds = fallbackCenter.toBounds(100000); // 100km di raggio
         }
 
-        // --- FIX: Ordine di Inizializzazione corretto ---
-
         // 1. CREA LA MAPPA
         // Inizializza la mappa sul div
         this.map = L.map('map');
@@ -132,6 +130,12 @@ export class MapResult {
       console.error("Errore fatale nel parsing o disegno del GeoJSON 'risultati':", e);
       console.error("Dati ricevuti (stringa):", this.dati['risultati']);
     }
+
+    const colors = ['#FF0000', '#FFA500', '#1626b8ff'];
+    const labels = ['Edifici', 'Alberi', 'Aree Verdi'];
+    for (let i = 0; i < 3; i++) {
+      this.otherLoading(colors[i], labels[i]);
+    }
   }
 
   //estrapolazione dati
@@ -141,5 +145,43 @@ export class MapResult {
     this.aree_verdi = JSON.parse(this.dati['aree_verdi']);
     this.result = JSON.parse(this.dati['risultati']);
     console.log("Risultati: ", this.result);
+  }
+
+  //funzione provvisoria per la visualizzazione dei dati di calcolo
+  private otherLoading(color: string, label: string){
+
+    let Input;
+    switch(label){
+      case 'Edifici': Input = this.edifici;
+                      break;
+      case 'Alberi': Input = this.alberi;
+                     break;
+      case 'Aree Verdi': Input = this.aree_verdi;
+                        break;
+    }
+
+    //gestione caso vuoto: nessun edificio ha soddisfatto le regole
+    if(!Input || Input.length === 0) {
+        console.log("Nessun dato input da visualizzare (GeoJSON vuoto).");
+        return;
+    }
+
+      /* disegno i risultati sulla mappa
+      // L.geoJSON è la funzione che fa tutto:
+      // 1. Legge l'oggetto GeoJSON
+      // 2. Inverte automaticamente [lon, lat] in (lat, lon) per Leaflet
+      // 3. Disegna i poligoni degli edifici */
+      this.L.geoJSON(Input, {
+
+        //aggiungiamo uno stile ai poligoni risultati
+        style: (feature: any) => {
+          return {
+            color: color, // Verde acceso
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.3
+          };
+        },
+      }).addTo(this.map);
   }
 }
