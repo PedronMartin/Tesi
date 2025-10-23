@@ -84,13 +84,13 @@ def greenRatingAlgorithm():
             #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
             #pertanto dobbiamo gestire la conversione in json di elementi Nulli
             if(alberi is None):
-                alberi = gpd.GeoDataFrame(crs="EPSG:4326") # GeoDataFrame vuoto
+                alberi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326") # GeoDataFrame vuoto
             else:
                 geojson_trees = json2geojson(alberi)
                 alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"], crs="EPSG:4326")
 
             if(aree_verdi is None):
-                aree_verdi = gpd.GeoDataFrame(crs="EPSG:4326") # GeoDataFrame vuoto
+                aree_verdi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326") # GeoDataFrame vuoto
             else:
                 geojson_green_areas = json2geojson(aree_verdi)
                 aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"], crs="EPSG:4326")
