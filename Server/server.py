@@ -87,13 +87,23 @@ def greenRatingAlgorithm():
                 alberi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326") # GeoDataFrame vuoto
             else:
                 geojson_trees = json2geojson(alberi)
-                alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"], crs="EPSG:4326")
+                #se la lista "features" è vuota, creo un GDF vuoto sicuro
+                if not geojson_trees["features"]:
+                    alberi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+                else:
+                    #altrimenti creo il GDF dalle features
+                    alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"], crs="EPSG:4326")
 
             if(aree_verdi is None):
                 aree_verdi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326") # GeoDataFrame vuoto
             else:
                 geojson_green_areas = json2geojson(aree_verdi)
-                aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"], crs="EPSG:4326")
+                #se la lista "features" è vuota, creo un GDF vuoto sicuro
+                if not geojson_green_areas["features"]:
+                    aree_verdi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+                else:
+                    #altrimenti creo il GDF dalle features
+                    aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"], crs="EPSG:4326")
 
         except Exception as e:
             return jsonify({'errore': f'Errore nella conversione in GeoDataFrame dei dati OSM: {e}'}), 500
