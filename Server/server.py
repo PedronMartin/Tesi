@@ -47,7 +47,7 @@ def greenRatingAlgorithm():
 
             # controllo messo qui per fallback in caso di errore nel buffer con poly_str
             if not buffered_polygon_300 or not buffered_polygon_3:
-                app.logger.warning(f"Impossibile creare il sovrapposizione per la regola 300 o 3: {e}. Uso il poligono di input.")
+                app.logger.warning(f"Impossibile creare il sovrapposizione per la regola 300 o 3. Uso il poligono di input.")
                 buffered_polygon_300 = poly_str
                 buffered_polygon_3 = poly_str
                 # TODO: eliminare questo errore se funziona
