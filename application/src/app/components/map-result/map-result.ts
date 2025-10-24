@@ -149,6 +149,7 @@ export class MapResult {
 
   //funzione provvisoria per la visualizzazione dei dati di calcolo
   private otherLoading(color: string, label: string){
+    /*
 
     let Input;
     switch(label){
@@ -165,12 +166,12 @@ export class MapResult {
         console.log("Nessun dato input da visualizzare (GeoJSON vuoto).");
         return;
     }
-
+*/
       /* disegno i risultati sulla mappa
       // L.geoJSON è la funzione che fa tutto:
       // 1. Legge l'oggetto GeoJSON
       // 2. Inverte automaticamente [lon, lat] in (lat, lon) per Leaflet
-      // 3. Disegna i poligoni degli edifici */
+      // 3. Disegna i poligoni degli edifici *//*
       this.L.geoJSON(Input, {
 
         //aggiungiamo uno stile ai poligoni risultati
@@ -182,6 +183,6 @@ export class MapResult {
             fillOpacity: 0.3
           };
         },
-      }).addTo(this.map);
+      }).addTo(this.map);*/
   }
 }

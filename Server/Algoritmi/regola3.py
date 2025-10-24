@@ -94,14 +94,14 @@ def run_rule_3(edifici, alberi):
     for idx, edificio in risultato_edifici.iterrows():
 
         #buffer di 100 metri attorno all'edificio
-        view_buffer = edificio.geometry.buffer(view_buffer)
+        buffer = edificio.geometry.buffer(view_buffer)
         
         """
         Uso l'indice per trovare gli alberi candidati all'interno del buffer
         questa operazione è approssimativa e fornisce più risultati di quelli reali
         ci serve in particolare per ridurre i candidati per il prossimo controllo
         """
-        possible_indices = list(alberi_idx.intersection(view_buffer.bounds))
+        possible_indices = list(alberi_idx.intersection(buffer.bounds))
 
         #creo una sottolista con solo quei candidati
         trees_candidates = alberi_proj.iloc[possible_indices]
@@ -111,7 +111,7 @@ def run_rule_3(edifici, alberi):
         la funzione within è più precisa e lenta, ma ora lavora su un sottoinsieme ridotto
         è onerosa perchè calcola la geometria esatta e non solo i bounds
         """
-        selected_trees = trees_candidates[trees_candidates.geometry.within(view_buffer)]
+        selected_trees = trees_candidates[trees_candidates.geometry.within(buffer)]
 
         #itero sugli alberi vicini richiamando la funzione apposita per la vista
         visible_trees = 0
