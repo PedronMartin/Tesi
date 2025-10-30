@@ -170,9 +170,19 @@ def build_query(type, poly_str):
         query = f"""
             [out:json][timeout:25];
             (
-            node["natural"="tree"](poly:"{poly_str}");
-            node["natural"="tree_row"](poly:"{poly_str}");
-            way["natural"="tree"](poly:"{poly_str}");
+              /* --- ALBERI SINGOLI O IN FILA --- */
+              node["natural"="tree"](poly:"{poly_str}");
+              node["natural"="tree_row"](poly:"{poly_str}");
+              way["natural"="tree_row"](poly:"{poly_str}");
+              relation["natural"="tree_row"](poly:"{poly_str}");
+              way["natural"="tree"](poly:"{poly_str}");
+              relation["natural"="tree"](poly:"{poly_str}");
+              
+              /* --- AGGIUNTA DI BOSCHI E FORESTE (PER REGOLA 30) --- */
+              way["landuse"="forest"](poly:"{poly_str}");
+              relation["landuse"="forest"](poly:"{poly_str}");
+              way["natural"="wood"](poly:"{poly_str}");
+              relation["natural"="wood"](poly:"{poly_str}");
             );
             out body;
             >;
@@ -182,11 +192,15 @@ def build_query(type, poly_str):
         query = f"""
             [out:json][timeout:25];
             (
-            way["leisure"="park"](poly:"{poly_str}");
-            way["leisure"="garden"](poly:"{poly_str}");
-            way["landuse"="grass"](poly:"{poly_str}");
-            way["landuse"="forest"](poly:"{poly_str}");
-            way["natural"="wood"](poly:"{poly_str}");
+              /* --- PARCHI E GIARDINI --- */
+              way["leisure"="park"](poly:"{poly_str}");
+              relation["leisure"="park"](poly:"{poly_str}");
+              way["leisure"="garden"](poly:"{poly_str}");
+              relation["leisure"="garden"](poly:"{poly_str}");
+
+              /* --- PRATI E AIUOLE --- */
+              way["landuse"="grass"](poly:"{poly_str}");
+              relation["landuse"="grass"](poly:"{poly_str}");
             );
             out body;
             >;

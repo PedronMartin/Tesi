@@ -8,9 +8,16 @@
             2. Calcolo dell'area arborea: viene creato un buffer di 2 metri intorno a ogni albero per stimarne l'area di copertura.
                 Tutti questi buffer vengono poi uniti in un unico poligono per calcolare l'area totale coperta dagli alberi.
 
-        MANCA: - L'area di studio deve essere definita in modo più rigoroso, ad esempio utilizzando il confine del quartiere o della città,
+        MANCA:
+            1- L'area di studio deve essere definita in modo più rigoroso, ad esempio utilizzando il confine del quartiere o della città,
                     invece di basarsi solo sugli elementi del dataset.
-            - La regola andrebbe adattata al dataset della tesi di Enrico, usando il suo sistema di classificazione delle geometrie degli alberi.
+            2- La regola andrebbe adattata al dataset della tesi di Enrico, usando il suo sistema di classificazione delle geometrie degli alberi.
+
+        SOLUZIONI:
+            1- 
+            2- la Regola 30 parla di 'Copertura Arborea'.
+                Per stimarla con i dati OSM, devo usare un'interpretazione pura (solo alberi, foreste, boschi)
+                    oppure un'interpretazione più ampia (includendo parchi e prati); (CHIEDERE A PROFESSORE)
 """
 
 #importazioni

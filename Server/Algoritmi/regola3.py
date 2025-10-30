@@ -57,18 +57,34 @@ def run_rule_3(edifici, alberi):
         else:
             edifici_proj = edifici.to_crs("EPSG:32632")
 
-        #elimino alberi non validi (no tag natural), e converto in sistema metrico
-        if 'natural' in alberi.columns:
-            mask_trees = (
-                alberi['natural']
-                .fillna('')                #evita NaN
-                .astype(str)               #forza conversione a stringa
-                .str.strip()               #rimuove spazi iniziali/finali
-                .str.lower() == 'tree'     #stringa minuscola sempre e confronta
-            )
-            alberi_proj = alberi[mask_trees].to_crs("EPSG:32632")
-        else:
-            alberi_proj = alberi.to_crs("EPSG:32632")
+        #converto in sistema metrico
+        alberi_proj = alberi.to_crs("EPSG:32632")
+        #pulizia e formattazione: evita NaN, forza conversione in stringa, rimuove spazi e rende minuscolo tutto
+        natural_col = alberi_proj['natural'].fillna('').astype(str).str.lower()
+        landuse_col = alberi_proj['landuse'].fillna('').astype(str).str.lower()
+
+        #definisco i tag che consideriamo "copertura arborea"
+        tree_tags = ['tree', 'tree_row']
+        forest_tags = ['forest', 'wood']
+
+        #creo la maschera booleana per selezionare solo gli elementi rilevanti
+        mask = (
+            natural_col.isin(tree_tags) |
+            natural_col.isin(forest_tags) |
+            landuse_col.isin(forest_tags)
+        )
+
+        #applico la maschera
+        alberi_proj_filtrati = alberi_proj[mask]
+
+        #pulisci geometrie non valide (spostato dopo il filtro)
+        edifici_proj = edifici_proj[edifici_proj.geometry.is_valid & ~edifici_proj.geometry.is_empty]
+        alberi_proj = alberi_proj_filtrati[alberi_proj_filtrati.geometry.is_valid & ~alberi_proj_filtrati.geometry.is_empty]
+        
+        #controllo finale su eventuali GeoDataFrame vuoti degli edifici, gli alberi invece possono non esserci
+        if edifici_proj.empty:
+             logger.warning("Nessuna geometria valida trovata dopo la proiezione/filtro.")
+             return edifici.assign(visible_trees_count=0)
 
     except Exception as e:
         logger.error(f"Errore nella proiezione dei dati: {e}")
