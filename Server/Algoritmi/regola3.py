@@ -92,6 +92,9 @@ def run_rule_3(edifici, alberi):
         #applico la maschera
         alberi_proj_filtrati = alberi_proj[mask]
 
+        #LOG DEBUG
+        logger.info(f"DEBUG Regola 3: Alberi pre-filtro: {len(alberi_proj)}. Alberi post-filtro: {len(alberi_proj_filtrati)}.")
+
         #pulisci geometrie non valide (spostato dopo il filtro)
         edifici_proj = edifici_proj[edifici_proj.geometry.is_valid & ~edifici_proj.geometry.is_empty]
         alberi_proj = alberi_proj_filtrati[alberi_proj_filtrati.geometry.is_valid & ~alberi_proj_filtrati.geometry.is_empty]
