@@ -60,6 +60,9 @@ def run_rule_3(edifici, alberi):
         #converto in sistema metrico
         alberi_proj = alberi.to_crs("EPSG:32632")
 
+        logger.info("--- DEBUG: Dati Alberi (pre-filtro) ---")
+        logger.info(alberi_proj.to_string())
+
         #definisco i tag che consideriamo "copertura arborea"
         tree_tags = ['tree', 'tree_row']
         forest_tags = ['forest', 'wood']
