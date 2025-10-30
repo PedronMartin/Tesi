@@ -59,20 +59,35 @@ def run_rule_3(edifici, alberi):
 
         #converto in sistema metrico
         alberi_proj = alberi.to_crs("EPSG:32632")
-        #pulizia e formattazione: evita NaN, forza conversione in stringa, rimuove spazi e rende minuscolo tutto
-        natural_col = alberi_proj['natural'].fillna('').astype(str).str.lower()
-        landuse_col = alberi_proj['landuse'].fillna('').astype(str).str.lower()
 
         #definisco i tag che consideriamo "copertura arborea"
         tree_tags = ['tree', 'tree_row']
         forest_tags = ['forest', 'wood']
 
-        #creo la maschera booleana per selezionare solo gli elementi rilevanti
-        mask = (
-            natural_col.isin(tree_tags) |
-            natural_col.isin(forest_tags) |
-            landuse_col.isin(forest_tags)
-        )
+        #creo delle maschere "vuote" (tutto Falso) come base, tenendo traccia dell'indice originale
+        mask_natural = pd.Series([False] * len(alberi_proj), index=alberi_proj.index)
+        mask_landuse = pd.Series([False] * len(alberi_proj), index=alberi_proj.index)
+        
+        #se la colonna 'natural' esiste, calcolo la sua maschera
+        if 'natural' in alberi_proj.columns:
+            #pulizia e formattazione: evita NaN, forza conversione in stringa, rimuove spazi e rende minuscolo tutto
+            natural_col = alberi_proj['natural'].fillna('').astype(str).str.lower().str.strip()
+            mask_natural = (
+                natural_col.isin(tree_tags) |
+                natural_col.isin(forest_tags)
+            )
+
+        #se la colonna 'landuse' esiste, calcolo la sua maschera
+        if 'landuse' in alberi_proj.columns:
+            #pulizia e formattazione: evita NaN, forza conversione in stringa, rimuove spazi e rende minuscolo tutto
+            landuse_col = alberi_proj['landuse'].fillna('').astype(str).str.lower().str.strip()
+            mask_landuse = landuse_col.isin(forest_tags)
+
+        """
+        La maschera finale è l'unione (OR) delle due maschere
+        Se una colonna non esiste, la sua maschera è rimasta "False" e non contribuisce
+        """
+        mask = mask_natural | mask_landuse
 
         #applico la maschera
         alberi_proj_filtrati = alberi_proj[mask]
