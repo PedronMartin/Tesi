@@ -245,10 +245,10 @@ def overpass_query(query):
             result = response.json()
             return result
         except requests.exceptions.Timeout:
-            print(f"Timeout su {url}, provo il prossimo endpoint...")
+            app.logger.warning(f"Timeout su {url}, provo il prossimo endpoint...")
             time.sleep(2)
         except requests.exceptions.RequestException as e:
-            print(f"Warning: il seguente server è sovvraccarico o ha generato un errore ---> {url}: {e}")
+            app.logger.warning(f"Warning: il seguente server è sovvraccarico o ha generato un errore ---> {url}: {e}")
             time.sleep(2)
     return None
 
