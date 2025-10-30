@@ -4,6 +4,7 @@ from flask_cors import CORS
 import requests
 from osm2geojson import json2geojson
 import geopandas as gpd
+import pandas as pd
 from Algoritmi.analizzatore_centrale import run_full_analysis
 import logging
 from shapely.geometry import Polygon
@@ -69,17 +70,25 @@ def greenRatingAlgorithm():
 
         # conversione dei dati da OSM a GeoDataFrame
         try:
+            """ --- VECCHIA VERSIONE ---
+            # Usa la nuova funzione per tutti
             geojson_buildings = json2geojson(edifici)
             edifici = gpd.GeoDataFrame.from_features(geojson_buildings["features"])
 
-            """ Garantisce che la colonna di geometria sia impostata correttamente
-            e che il CRS sia presente, anche se GeoPandas ha fallito nel farlo
-            con from_features. """
+            #Garantisce che la colonna di geometria sia impostata correttamente
+            #e che il CRS sia presente, anche se GeoPandas ha fallito nel farlo
+            #con from_features
             if not edifici.empty:
                 if edifici.geometry.name != 'geometry':
                     edifici = edifici.set_geometry('geometry')
                 if edifici.crs is None:
                     edifici = edifici.set_crs('EPSG:4326', allow_override=True)
+            
+            geojson_trees = json2geojson(alberi)
+            alberi = unpack_gdf_features(geojson_trees)
+            
+            geojson_green_areas = json2geojson(aree_verdi)
+            aree_verdi = unpack_gdf_features(geojson_green_areas)
 
             #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
             #pertanto dobbiamo gestire la conversione in json di elementi Nulli
@@ -104,6 +113,15 @@ def greenRatingAlgorithm():
                 else:
                     #altrimenti creo il GDF dalle features
                     aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"], crs="EPSG:4326")
+            """
+            geojson_buildings = json2geojson(edifici)
+            edifici = unpack_gdf_features(geojson_buildings)
+
+            geojson_trees = json2geojson(alberi)
+            alberi = unpack_gdf_features(geojson_trees)
+            
+            geojson_green_areas = json2geojson(aree_verdi)
+            aree_verdi = unpack_gdf_features(geojson_green_areas)
 
         except Exception as e:
             return jsonify({'errore': f'Errore nella conversione in GeoDataFrame dei dati OSM: {e}'}), 500
@@ -170,7 +188,7 @@ def build_query(type, poly_str):
         query = f"""
             [out:json][timeout:25];
             (
-              /* --- ALBERI SINGOLI O IN FILA --- */
+              /* ALBERI SINGOLI O IN FILA */
               node["natural"="tree"](poly:"{poly_str}");
               node["natural"="tree_row"](poly:"{poly_str}");
               way["natural"="tree_row"](poly:"{poly_str}");
@@ -178,7 +196,7 @@ def build_query(type, poly_str):
               way["natural"="tree"](poly:"{poly_str}");
               relation["natural"="tree"](poly:"{poly_str}");
               
-              /* --- AGGIUNTA DI BOSCHI E FORESTE (PER REGOLA 30) --- */
+              /* BOSCHI E FORESTE */
               way["landuse"="forest"](poly:"{poly_str}");
               relation["landuse"="forest"](poly:"{poly_str}");
               way["natural"="wood"](poly:"{poly_str}");
@@ -192,13 +210,13 @@ def build_query(type, poly_str):
         query = f"""
             [out:json][timeout:25];
             (
-              /* --- PARCHI E GIARDINI --- */
+              /* PARCHI E GIARDINI */
               way["leisure"="park"](poly:"{poly_str}");
               relation["leisure"="park"](poly:"{poly_str}");
               way["leisure"="garden"](poly:"{poly_str}");
               relation["leisure"="garden"](poly:"{poly_str}");
 
-              /* --- PRATI E AIUOLE --- */
+              /* PRATI E AIUOLE */
               way["landuse"="grass"](poly:"{poly_str}");
               relation["landuse"="grass"](poly:"{poly_str}");
             );
@@ -268,6 +286,37 @@ def increasePolygon(polygon, rule):
         app.logger.warning(f"Impossibile creare il sovvra-Buffer per la regola 300 o 3: {e}. Uso il poligono di input.")
         # Fallback: usa il poligono originale se il buffer fallisce
         return None
+    
+"""
+    Questa funzione prende i dati GeoJSON e "spacchetta" la colonna 'tags' (che è un dizionario)
+    in colonne separate (es. 'natural', 'landuse', ecc.).
+    Si è resa necessaria questa funzione dal momento che abbiamo aggiunto diversi elementi all'interno
+    delle stesse richieste a Overpass. Fin tanto che ogni query era per un singolo tipo di elemento, es. alberi,
+    non c'era bisogno di questa funzione, in quanto ogni GDF aveva una colonna 'tags' con un solo tipo di chiave e
+    il convertitore di GeoPandas lo "capiva" da solo, trasformandolo in una colonna separata.
+    Ora che abbiamo più tipi di elementi (es. alberi singoli, alberi in fila, boschi, ecc.),
+    la colonna 'tags' contiene più chiavi diverse, e GeoPandas non riesce a gestirla da solo.
+    Quindi questa funzione usa pandas.json_normalize per "spacchettare" i dizionari in colonne.
+"""
+def unpack_gdf_features(geojson_data, crs="EPSG:4326"):
+    
+    #gestisco dati vuoti o senza colonna features
+    if not geojson_data or not geojson_data.get("features"):
+        return gpd.GeoDataFrame(geometry=[], crs=crs)
+
+    #creo il GDF. Ora ha una colonna 'tags' che è un dict
+    gdf = gpd.GeoDataFrame.from_features(geojson_data["features"], crs=crs)
+
+    #controllo se la colonna tags esiste gli elementi non sono uniformi
+    if 'tags' not in gdf.columns:
+        return gdf
+
+    #json_normalize converte i dizionari in colonne separate
+    tags_df = pd.json_normalize(gdf['tags'])
+    
+    #unisco le geometrie originali, togliendo la colonna tags, con le nuove colonne
+    gdf = gdf.drop(columns=['tags']).join(tags_df)
+    return gdf
 
 if __name__ == '__main__':
     # Esegue il server solo su localhost per sicurezza durante lo sviluppo.
