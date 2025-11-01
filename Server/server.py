@@ -180,9 +180,16 @@ def unpack_gdf_features(geojson_data, crs="EPSG:4326"):
     if 'tags' not in gdf.columns:
         return gdf
 
+    #estraggo la colonna tags. 
+    #fillna({}) sostituisce tutti i 'None' con un dizionario vuoto {}
+    tags_list = gdf['tags'].fillna({}).tolist()
+
     #json_normalize converte i dizionari in colonne separate
-    tags_df = pd.json_normalize(gdf['tags'])
+    tags_df = pd.json_normalize(tags_list)
     
+    #allineo gli indici con il GDF originale
+    tags_df.index = gdf.index
+
     #unisco le geometrie originali, togliendo la colonna tags, con le nuove colonne
     gdf = gdf.drop(columns=['tags']).join(tags_df)
     return gdf
