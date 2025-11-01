@@ -221,12 +221,10 @@ def greenRatingAlgorithm():
 
             # controllo messo qui per fallback in caso di errore nel buffer con poly_str
             if not buffered_polygon_300 or not buffered_polygon_3:
-                app.logger.warning(f"Impossibile creare il sovrapposizione per la regola 300 o 3. Uso il poligono di input.")
+                app.logger.warning(f"Impossibile creare la sovrapposizione per la regola 300 o 3. Uso il poligono di input.")
                 buffered_polygon_300 = poly_str
                 buffered_polygon_3 = poly_str
-                # TODO: eliminare questo errore se funziona
-                # ritorno di errore per prova funziona
-                return jsonify({'errore': 'Impossibile creare il buffer per la query Overpass'}), 500
+                app.logger.info(f"Impossibile gonfiare poligono di input: buffer settati esattamente come l'input. Output potrebbe essere incompleto.")
 
             # costruisco le query e le eseguo
             buildings_query = build_query(0, poly_str)
