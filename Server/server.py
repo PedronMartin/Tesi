@@ -9,7 +9,28 @@ from Algoritmi.analizzatore_centrale import run_full_analysis
 import logging
 from shapely.geometry import Polygon
 
-#Funzioni di supporto
+
+
+#####################################################################################
+############################Configurazione server Flask##############################
+#####################################################################################
+app = Flask(__name__)
+# abilita CORS per permettere ad Angular (che è su un'altra porta) di chiamare l'API
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# configura il logging una sola volta per l'intera applicazione
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+
+
+
+##############################################################################
+############################Funzioni di supporto##############################
+##############################################################################
 
 # funzione per costruire la query a Overpass API in base al tipo di dato richiesto
 """
@@ -101,6 +122,7 @@ def overpass_query(query):
 
 # funzione per aumentare la dimensione del calcolo di una certa distanza, per comprendere gli elementi che rientrano nelle distanze ma non nel poligono
 def increasePolygon(polygon, rule):
+    
     try:
         # Shapely Polygon vuole coordinate [(lon, lat)], quindi invertite rispetto a prima (simile a Leaflet)
         poly_coords = [(lon, lat) for lat, lon in polygon]
@@ -166,18 +188,11 @@ def unpack_gdf_features(geojson_data, crs="EPSG:4326"):
     return gdf
 
 
-#MAIN
 
-app = Flask(__name__)
-# abilita CORS per permettere ad Angular (che è su un'altra porta) di chiamare l'API
-CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# configura il logging una sola volta per l'intera applicazione
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+###############################################################
+############################MAIN###############################
+###############################################################
 
 # Endpoint per l'API
 @app.route('/api/greenRatingAlgorithm', methods=['POST'])
