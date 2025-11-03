@@ -69,7 +69,8 @@ export class MapResult {
         //aggiungo sfondo OSM alla mappa
         this.baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 30
+          maxZoom: 30,
+          maxNativeZoom: 30
         }).addTo(this.map);
 
         //centro la mappa con i dati ricevuti e regolo lo zoom
@@ -117,11 +118,54 @@ private loadData(){
 
     //layer edifici di input
     if(this.edifici && this.edifici.features && this.edifici.features.length > 0)
-      this.buildingsLayer = this.L.geoJSON(this.edifici, { style: styles.buildings });
+      this.buildingsLayer = this.L.geoJSON(this.edifici, {
+        style: styles.buildings,
+        onEachFeature: (feature: any, layer: any) => {
+          if(feature.properties) {
+            const props = feature.properties;
+            
+            // Creiamo un popup per tutti gli edifici (grigi)
+            // (Nota: questi edifici non hanno i 'risultati' perché
+            // sono stati filtrati da analizzatore_centrale)
+            // Per ora mostriamo solo le info base.
+            
+            let popupContent = `<b>Edificio (ID: ${props.id})</b><br>`;
+            if(props.name) popupContent += `Nome: ${props.name}<br>`;
+
+            // Se l'edificio ha il tag 'building', mostralo
+            if(props.building && props.building !== 'yes') {
+              popupContent += `Tipo: ${props.building}<br>`;
+            }
+
+            // TODO: In futuro, potremmo modificare analizzatore_centrale
+            // per restituire *tutti* gli edifici, con i loro punteggi parziali.
+            
+            layer.bindPopup(popupContent);
+          }
+        }
+      });
 
     //layer alberi di input
-    if (this.alberi && this.alberi.features && this.alberi.features.length > 0)
-      this.treesLayer = this.L.geoJSON(this.alberi, { style: styles.trees });
+    if (this.alberi && this.alberi.features && this.alberi.features.length > 0){
+
+      //definizione icona personalizzata
+      const treeIcon = this.L.icon({
+        iconUrl: 'assets/treePopUp.png',
+        iconSize: [25, 25],                 //dimensione icona
+        iconAnchor: [12, 25],               //posizione popup rispetto al punto
+      });
+
+      this.treesLayer = this.L.geoJSON(this.alberi, {
+        
+        //gestione delle zone arboree grandi (boschi e foreste)
+        style: styles.trees,
+        
+        //gestione degli alberi puntiformi (Leaflet di default inserisce i popup standard)
+        pointToLayer: (_feature: any, latlng: any) => {
+          return this.L.marker(latlng, {icon: treeIcon});
+        }
+      });
+    }
 
     //layer aree verdi di input
     if (this.aree_verdi && this.aree_verdi.features && this.aree_verdi.features.length > 0)
