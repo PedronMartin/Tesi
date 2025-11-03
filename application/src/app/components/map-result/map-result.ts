@@ -12,11 +12,19 @@ export class MapResult {
   //campi
   private L: any;
   private map: any;
-  private edifici: any[] = [];
-  private alberi: any[] = [];
-  private aree_verdi: any[] = [];
-  private result: any[] = [];
-  private resultsLayer: any;
+  private edifici: any;
+  private alberi: any;
+  private aree_verdi: any;
+  private result: any;
+
+  //layer della mappa
+  private baseLayer: any;       //mappa base (OSM)
+  private resultsLayer: any;    //edifici conformi a tutte le regole
+  private buildingsLayer: any;  //tutti gli edifici in input
+  private treesLayer: any;      //tutti gli alberi in input
+  private greenAreasLayer: any; //tutte le aree verdi in input
+
+  //input ricevuti
   @Input() dati: any;
   @Input() polygon: number[][] = [];
 
@@ -55,134 +63,130 @@ export class MapResult {
           bounds = fallbackCenter.toBounds(100000); // 100km di raggio
         }
 
-        // 1. CREA LA MAPPA
-        // Inizializza la mappa sul div
+        //inizializzo la mappa sul div
         this.map = L.map('map');
 
-        // 2. AGGIUNGI I TILES (LO SFONDO DELLA MAPPA)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        //aggiungo sfondo OSM alla mappa
+        this.baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
           maxZoom: 30
         }).addTo(this.map);
 
-        // 3. CENTRA E ZOOMA LA MAPPA
-        // fitBounds calcola automaticamente centro e zoom
+        //centro la mappa con i dati ricevuti e regolo lo zoom
         this.map.fitBounds(bounds);
-        this.map.setZoom(this.map.getZoom() - 1); // Zoom out di 1 livello per migliore visuale
-
+        this.map.setZoom(this.map.getZoom() - 1);
         this.loadData();
       });
     }
   }
 
-  private loadData(){
-    if (!this.dati || !this.map || !this.L) {
+private loadData(){
+
+    //verifica dei dati
+    if(!this.dati || !this.map || !this.L) {
       console.error("Dati non validi o mappa non inizializzata");
       return;
     }
-    //funzione per estrapolare i vari dati
-    this.extractData();
+    
+    //estraggo e preparo i dati
+    const data = this.extractData();
 
-    //carico i risultati sulla mappa
-    try {
+    //pulisco layer precedenti (se esistono)
+    this.clearLayer();
 
-      //gestione caso vuoto: nessun edificio ha soddisfatto le regole
-      if (!this.result || this.result.length === 0) {
-        console.log("Nessun edificio risultato da visualizzare (GeoJSON vuoto).");
-        return;
-      }
+    //definisco gli stili per i vari layer
+    const styles = this.colorLayers();
 
-      /* disegno i risultati sulla mappa
-      // L.geoJSON è la funzione che fa tutto:
-      // 1. Legge l'oggetto GeoJSON
-      // 2. Inverte automaticamente [lon, lat] in (lat, lon) per Leaflet
-      // 3. Disegna i poligoni degli edifici */
+    //creo i layer di output (il primo a caricare)
+    if(this.result && this.result.features && this.result.features.length > 0) {
       this.resultsLayer = this.L.geoJSON(this.result, {
-
-        //aggiungiamo uno stile ai poligoni risultati
-        style: (feature: any) => {
-          return {
-            color: "#00FF00", // Verde acceso
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.3
-          };
-        },
-
-        //aggiungiamo un popup a ogni edificio
+        style: styles.results,
         onEachFeature: (feature: any, layer: any) => {
-          if (feature.properties) {
+          if(feature.properties){
             const props = feature.properties;
-            //creiamo un popup con i dati delle regole
             let popupContent = `<b>Edificio ID: ${props.id}</b><br>`;
             if(props.name) popupContent += `Nome: ${props.name}<br>`;
             popupContent += `Alberi visibili: ${props.visible_trees_count}<br>`;
             popupContent += `Score 300m: ${props.score_300 === 1 ? 'Sì' : 'No'}<br>`;
             popupContent += `Copertura Zona: ${props.coverage_percentage.toFixed(2)}%`;
-            
             layer.bindPopup(popupContent);
           }
         }
-
       }).addTo(this.map);
-
-    } catch (e) {
-      console.error("Errore fatale nel parsing o disegno del GeoJSON 'risultati':", e);
-      console.error("Dati ricevuti (stringa):", this.dati['risultati']);
     }
 
-    const colors = ['#FF0000', '#ffee05ff', '#1626b8ff'];
-    const labels = ['Edifici', 'Alberi', 'Aree Verdi'];
-    for (let i = 0; i < 3; i++) {
-      this.otherLoading(colors[i], labels[i]);
-    }
+    //layer edifici di input
+    if(this.edifici && this.edifici.features && this.edifici.features.length > 0)
+      this.buildingsLayer = this.L.geoJSON(this.edifici, { style: styles.buildings });
+
+    //layer alberi di input
+    if (this.alberi && this.alberi.features && this.alberi.features.length > 0)
+      this.treesLayer = this.L.geoJSON(this.alberi, { style: styles.trees });
+
+    //layer aree verdi di input
+    if (this.aree_verdi && this.aree_verdi.features && this.aree_verdi.features.length > 0)
+      this.greenAreasLayer = this.L.geoJSON(this.aree_verdi, { style: styles.greenAreas });
+
+    //definisco i gruppi di controllo degli output
+    const baseLayers = {
+      "Mappa base": this.baseLayer
+    };
+
+    //spacchettamento delle caselle selezionate, aggiungendo solo quelle esistenti
+    /*
+    ... ---> aggiunge solo se esiste
+    this.<nomeLayer> ---> verifica se il layer esiste
+    && ---> se esiste, aggiunge l'oggetto con nome e layer
+    */
+    const overlayLayers = {
+      ...(this.resultsLayer && {"Edifici Conformi": this.resultsLayer}),
+      ...(this.buildingsLayer && {"Tutti gli Edifici": this.buildingsLayer}),
+      ...(this.treesLayer && {"Alberi": this.treesLayer}),
+      ...(this.greenAreasLayer && {"Aree Verdi": this.greenAreasLayer})
+    };
+
+    //aggiungo il Layer alla mappa
+    this.L.control.layers(baseLayers, overlayLayers, {
+      position: 'topright',
+      collapsed: false
+    }).addTo(this.map);
   }
 
-  //estrapolazione dati
+  //funzione ausiliaria per estrapolare i dati
   private extractData(){
     this.edifici = JSON.parse(this.dati['edifici']);
     this.alberi = JSON.parse(this.dati['alberi']);
     this.aree_verdi = JSON.parse(this.dati['aree_verdi']);
     this.result = JSON.parse(this.dati['risultati']);
-    console.log("Risultati: ", this.result);
   }
 
-  //funzione provvisoria per la visualizzazione dei dati di calcolo
-  private otherLoading(color: string, label: string){
-    /*
+  //funzione ausiliaria per pulire i layer precedenti
+  private clearLayer(){
+    if(this.resultsLayer) this.map.removeLayer(this.resultsLayer);
+    if(this.buildingsLayer) this.map.removeLayer(this.buildingsLayer);
+    if(this.treesLayer) this.map.removeLayer(this.treesLayer);
+    if(this.greenAreasLayer) this.map.removeLayer(this.greenAreasLayer);
+  }
 
-    let Input;
-    switch(label){
-      case 'Edifici': Input = this.edifici;
-                      break;
-      case 'Alberi': Input = this.alberi;
-                     break;
-      case 'Aree Verdi': Input = this.aree_verdi;
-                        break;
-    }
-
-    //gestione caso vuoto: nessun edificio ha soddisfatto le regole
-    if(!Input || Input.length === 0) {
-        console.log("Nessun dato input da visualizzare (GeoJSON vuoto).");
-        return;
-    }
-*/
-      /* disegno i risultati sulla mappa
-      // L.geoJSON è la funzione che fa tutto:
-      // 1. Legge l'oggetto GeoJSON
-      // 2. Inverte automaticamente [lon, lat] in (lat, lon) per Leaflet
-      // 3. Disegna i poligoni degli edifici *//*
-      this.L.geoJSON(Input, {
-
-        //aggiungiamo uno stile ai poligoni risultati
-        style: (feature: any) => {
-          return {
-            color: color, // Verde acceso
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.3
-          };
+  //funzione ausiliaria per definire gli stili dei layer
+  private colorLayers(){
+    return {
+        //edifici conformi alle regole
+        results: {
+            color: "#00FF00", weight: 2, opacity: 1, fillOpacity: 0.3
         },
-      }).addTo(this.map);*/
+        //tutti gli edifici in input
+        buildings: {
+            color: "#0c0c0cff", weight: 1, opacity: 0.6, fillOpacity: 0.2
+        },
+        //tutti gli alberi in input
+        trees: {
+            color: "#dfdb0aff", weight: 1, opacity: 0.8, fillOpacity: 0.4
+        },
+        //tutte le aree verdi in input
+        greenAreas: {
+            color: "#286d0cff", weight: 1, opacity: 0.7, fillOpacity: 0.3
+        }
+    };
   }
 }

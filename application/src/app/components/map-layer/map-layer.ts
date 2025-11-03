@@ -84,7 +84,7 @@ export class MapLayerComponent implements AfterViewInit {
         }
         this.L = L;
         this.map = L.map(mapDiv, {
-          center: [45.464664, 9.188540],
+          center: [46.06001421239969, 11.114192721424503],
           zoom: 13
         });
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
