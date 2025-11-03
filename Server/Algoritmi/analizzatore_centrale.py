@@ -31,7 +31,7 @@ output_filename = "edifici_conformi_3_30_300.geojson"
 """
     Funzione principale che esegue l'analisi completa 3-30-300.
 """
-def run_full_analysis(edifici, alberi, aree_verdi):
+def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("analizzatore_centrale")
     logger.info("Avvio dell'analisi completa 3-30-300...")
@@ -52,7 +52,7 @@ def run_full_analysis(edifici, alberi, aree_verdi):
 
     logger.info("--- Esecuzione Regola 30 (Copertura Arborea) ---")
     try:
-        percentage_30 = run_rule_30(edifici, alberi)
+        percentage_30 = run_rule_30(edifici, alberi, polygon_gdf)
         logger.info(f"RISULTATO REGOLA 30: La copertura arborea è del {percentage_30:.2f}%.")
         if percentage_30 > 0.0:
             logger.info("La regola del 30% è soddisfatta a livello di zona.")

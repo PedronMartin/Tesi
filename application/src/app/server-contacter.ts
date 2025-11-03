@@ -9,7 +9,8 @@ import { Observable } from 'rxjs';
 export class ServerContacter {
   
   // URL del tuo server live su Render (usiamo HTTPS)
-  private apiUrl = 'https://greenratingalgorithmprovider.onrender.com/api/greenRatingAlgorithm';
+  //private apiUrl = 'https://greenratingalgorithmprovider.onrender.com/api/greenRatingAlgorithm';
+  private apiUrl = 'http://localhost:5000/api/greenRatingAlgorithm';
   /*TODO: staccare il nome dell'endpoint in una variabile di ambiente per poterlo cambiare in base alla richiesta*/
 
   constructor(private http: HttpClient) {}

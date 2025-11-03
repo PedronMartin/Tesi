@@ -121,13 +121,11 @@ def overpass_query(query):
     return None
 
 # funzione per aumentare la dimensione del calcolo di una certa distanza, per comprendere gli elementi che rientrano nelle distanze ma non nel poligono
-def increasePolygon(polygon, rule):
+def increasePolygon(poly_coords, rule):
     
     try:
-        # Shapely Polygon vuole coordinate [(lon, lat)], quindi invertite rispetto a prima (simile a Leaflet)
-        poly_coords = [(lon, lat) for lat, lon in polygon]
         
-        # crea un GeoDataFrame con il poligono di input
+        #creo un GeoDataFrame con il poligono di input
         gdf_input = gpd.GeoDataFrame(
             [{'geometry': Polygon(poly_coords)}], 
             crs="EPSG:4326"
@@ -176,22 +174,26 @@ def unpack_gdf_features(geojson_data, crs="EPSG:4326"):
     #creo il GDF. Ora ha una colonna 'tags' che è un dict
     gdf = gpd.GeoDataFrame.from_features(geojson_data["features"], crs=crs)
 
-    #controllo se la colonna tags esiste gli elementi non sono uniformi
+    #se la colonna tags esiste gli elementi non sono uniformi e si prosegue con l'espansione
     if 'tags' not in gdf.columns:
         return gdf
 
     #estraggo la colonna tags. 
     #fillna({}) sostituisce tutti i 'None' con un dizionario vuoto {}
-    tags_list = gdf['tags'].fillna({}).tolist()
+    tags_series = gdf['tags'].fillna({})
 
-    #json_normalize converte i dizionari in colonne separate
-    tags_df = pd.json_normalize(tags_list)
-    
-    #allineo gli indici con il GDF originale
-    tags_df.index = gdf.index
+    #json_normalize converte i dizionari in colonne separate (es. 'geometry', 'type', 'id')
+    tags_df = tags_series.apply(pd.Series)
 
-    #unisco le geometrie originali, togliendo la colonna tags, con le nuove colonne
-    gdf = gdf.drop(columns=['tags']).join(tags_df)
+    #elimino colonna tags che non serve più
+    original_cols_to_keep = gdf.columns.drop('tags')
+
+    #rimuovo le colonne in tags_df che sono duplicati
+    cols_to_drop_from_tags = original_cols_to_keep.intersection(tags_df.columns)
+    safe_tags_df = tags_df.drop(columns=cols_to_drop_from_tags)
+
+    #ora il join è sicuro, perché non ci sono colonne sovrapposte
+    gdf = gdf.drop(columns=['tags']).join(safe_tags_df)
     return gdf
 
 
@@ -215,26 +217,44 @@ def greenRatingAlgorithm():
         
         # query per Overpass API
         if(polygon):
-            # aumento il poligono in base alla regola
-            buffered_polygon_300 = increasePolygon(polygon, 300)
-            buffered_polygon_3 = increasePolygon(polygon, 3)
 
             """
-            concateno i punti del poligono in una stringa formattata per Overpass
-            da client arrivano in formato json come lista di liste [[lat, lon], [lat, lon], ...]
-            a overpass dobbiamo mandare "lat lon lat lon ..."
+            Concateno i punti del poligono in una stringa formattata per le query Overpass;
+            da client arrivano in formato json come lista di liste [[lat, lon], [lat, lon], ...],
+            mentre a Overpass dobbiamo mandare "lat lon lat lon ...".
+            La seconda riga lascia il poligono in formato lista di tuple [(lon, lat), (lon, lat), ...],
+            ma invertendo lat e lon, in quanto Shapely Polygon le utilizza così (simile a Leaflet).
+            Questa seconda rappresentazione serve alla funzione che aumenta il poligono con il buffer per la Regola 300 e 3, 
+            eseguita prima delle query Overpass, in quanto sono regole cui calcolo necessita anche degli elementi
+            fuori dal poligono di input.
             """
-            poly_str = " ".join([f"{lat} {lon}" for lat, lon in polygon])
+            formatted_poly = " ".join([f"{lat} {lon}" for lat, lon in polygon])
+            # Shapely Polygon vuole coordinate [(lon, lat)], quindi invertite rispetto a prima (simile a Leaflet)
+            poly_coords = [(lon, lat) for lat, lon in polygon]
+
+            #creo anche un GDF del poligono in input che servirà alla regola 30 per il calcolo dell'area totale
+            try:
+                polygon_gdf = gpd.GeoDataFrame(
+                    [{'geometry': Polygon(poly_coords)}],
+                    crs="EPSG:4326"
+                    )
+            except Exception as e:
+                app.logger.error(f"Errore creazione GDF poligono di input: {e}")
+                return jsonify({'errore': 'Poligono di input non valido.'}), 400
+
+            #aumento il poligono in base alla regola
+            buffered_polygon_300 = increasePolygon(poly_coords, 300)
+            buffered_polygon_3 = increasePolygon(poly_coords, 3)
 
             # controllo messo qui per fallback in caso di errore nel buffer con poly_str
             if not buffered_polygon_300 or not buffered_polygon_3:
                 app.logger.warning(f"Impossibile creare la sovrapposizione per la regola 300 o 3. Uso il poligono di input.")
-                buffered_polygon_300 = poly_str
-                buffered_polygon_3 = poly_str
+                buffered_polygon_300 = formatted_poly
+                buffered_polygon_3 = formatted_poly
                 app.logger.info(f"Impossibile gonfiare poligono di input: buffer settati esattamente come l'input. Output potrebbe essere incompleto.")
 
             # costruisco le query e le eseguo
-            buildings_query = build_query(0, poly_str)
+            buildings_query = build_query(0, formatted_poly)
             edifici = overpass_query(buildings_query)
             if edifici is None:
                 return jsonify({'errore': 'Nessun edificio selezionato'}), 504
@@ -248,50 +268,6 @@ def greenRatingAlgorithm():
 
         # conversione dei dati da OSM a GeoDataFrame
         try:
-            """ --- VECCHIA VERSIONE ---
-            # Usa la nuova funzione per tutti
-            geojson_buildings = json2geojson(edifici)
-            edifici = gpd.GeoDataFrame.from_features(geojson_buildings["features"])
-
-            #Garantisce che la colonna di geometria sia impostata correttamente
-            #e che il CRS sia presente, anche se GeoPandas ha fallito nel farlo
-            #con from_features
-            if not edifici.empty:
-                if edifici.geometry.name != 'geometry':
-                    edifici = edifici.set_geometry('geometry')
-                if edifici.crs is None:
-                    edifici = edifici.set_crs('EPSG:4326', allow_override=True)
-            
-            geojson_trees = json2geojson(alberi)
-            alberi = unpack_gdf_features(geojson_trees)
-            
-            geojson_green_areas = json2geojson(aree_verdi)
-            aree_verdi = unpack_gdf_features(geojson_green_areas)
-
-            #solo gli edifici devono non essere nulli, gli altri possono essere vuoti
-            #pertanto dobbiamo gestire la conversione in json di elementi Nulli
-            if(alberi is None):
-                alberi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326") # GeoDataFrame vuoto
-            else:
-                geojson_trees = json2geojson(alberi)
-                #se la lista "features" è vuota, creo un GDF vuoto sicuro
-                if not geojson_trees["features"]:
-                    alberi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
-                else:
-                    #altrimenti creo il GDF dalle features
-                    alberi = gpd.GeoDataFrame.from_features(geojson_trees["features"], crs="EPSG:4326")
-
-            if(aree_verdi is None):
-                aree_verdi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326") # GeoDataFrame vuoto
-            else:
-                geojson_green_areas = json2geojson(aree_verdi)
-                #se la lista "features" è vuota, creo un GDF vuoto sicuro
-                if not geojson_green_areas["features"]:
-                    aree_verdi = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
-                else:
-                    #altrimenti creo il GDF dalle features
-                    aree_verdi = gpd.GeoDataFrame.from_features(geojson_green_areas["features"], crs="EPSG:4326")
-            """
             geojson_buildings = json2geojson(edifici)
             edifici = unpack_gdf_features(geojson_buildings)
 
@@ -305,7 +281,7 @@ def greenRatingAlgorithm():
             return jsonify({'errore': f'Errore nella conversione in GeoDataFrame dei dati OSM: {e}'}), 500
 
         # esecuzione degli algoritmi
-        result = run_full_analysis(edifici, alberi, aree_verdi)
+        result = run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf)
 
         # definiamo un GeoJSON vuoto standard da usare come fallback
         empty_geojson_fallback = '{"type": "FeatureCollection", "features": []}'
@@ -343,7 +319,7 @@ def greenRatingAlgorithm():
 
 if __name__ == '__main__':
     # Esegue il server solo su localhost per sicurezza durante lo sviluppo.
-    #app.run(host='127.0.0.1', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
     # Esegue il server su tutte le interfacce, così anche altri utenti possono collegarsi
     # app.run(host='0.0.0.0', port=5000, debug=True)
     pass
