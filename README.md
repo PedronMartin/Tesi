@@ -70,9 +70,9 @@ Error Responses (Esempi):
 
     500 Internal Server Error: Errore di calcolo interno (l'errore viene loggato sul server).
 
-5. Documentazione Tecnica Approfondita
+## 5. Documentazione Tecnica Approfondita
 
-Per un'analisi dettagliata della metodologia, delle ottimizzazioni (es. ottimizzazione Regola 3 da O(N3) a O(NlogN)) e delle decisioni architetturali (es. gestione dei tag OSM non omogenei), si rimanda al file DOCUMENTAZIONE_TECNICA.md.
+Per un'analisi dettagliata della metodologia, delle ottimizzazioni e delle decisioni architetturali, con gestione degli errori, si rimanda al file DOCUMENTAZIONE.md.
 
 # APPLICAZIONE FRONTEND
 
