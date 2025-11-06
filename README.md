@@ -56,6 +56,20 @@ L'API espone un singolo endpoint per l'analisi completa.
 
 Esegue l'analisi 3-30-300 completa sul poligono fornito.
 
+**Request Body (JSON):**
+*L'input deve essere un poligono con almeno 4 punti (per un triangolo valido, dove il primo e l'ultimo punto coincidono).*
+```json
+{
+  "polygon": [
+    [45.464, 9.188],
+    [45.462, 9.188],
+    [45.462, 9.190],
+    [45.464, 9.190],
+    [45.464, 9.188]
+  ]
+}
+```
+
 **Success Response (200 OK):**
 *Il server restituisce 4 GeoJSON (serializzati come stringhe) che il frontend può parsare e renderizzare.*
 ```json
