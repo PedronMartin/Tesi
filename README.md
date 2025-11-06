@@ -59,7 +59,8 @@ Esegue l'analisi 3-30-300 completa sul poligono fornito.
   "alberi": "<GeoJSON FeatureCollection (Tutta la copertura arborea: alberi, boschi, foreste)>",
   "aree_verdi": "<GeoJSON FeatureCollection (Tutte le aree ricreative: parchi, prati)>",
   "risultati": "<GeoJSON FeatureCollection (Solo gli edifici che soddisfano tutte le regole)>"
-}```
+}
+```
 
 Error Responses (Esempi):
 
