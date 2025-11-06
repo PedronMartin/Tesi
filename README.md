@@ -13,7 +13,7 @@ Questo repository contiene l'intero progetto, suddiviso in:
 
 Questo è il servizio backend per il progetto di tesi e ricerca "GreenRatingAlgorithm".
 
-È un'API REST basata su **Flask** che calcola la regola urbanistica del **3-30-300**. Il servizio riceve un poligono definito dall'utente, interroga i dati *live* da **OpenStreetMap (OSM)** tramite l'API Overpass, ed esegue un'analisi geospaziale complessa per valutare la conformità dell'area.
+È un'API REST basata su **Flask** che calcola la regola urbanistica del **3-30-300**. Il servizio riceve un poligono definito dall'utente, interroga i dati live da **OpenStreetMap (OSM)** tramite l'API Overpass, ed esegue un'analisi geospaziale complessa per valutare la conformità dell'area.
 
 ## 2. Stack Tecnologico
 
@@ -59,7 +59,7 @@ Esegue l'analisi 3-30-300 completa sul poligono fornito.
   "alberi": "<GeoJSON FeatureCollection (Tutta la copertura arborea: alberi, boschi, foreste)>",
   "aree_verdi": "<GeoJSON FeatureCollection (Tutte le aree ricreative: parchi, prati)>",
   "risultati": "<GeoJSON FeatureCollection (Solo gli edifici che soddisfano tutte le regole)>"
-}
+}```
 
 Error Responses (Esempi):
 
