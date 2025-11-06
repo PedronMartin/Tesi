@@ -1,32 +1,79 @@
 # Green Rating Algorithm
 
-Green Rating Algorithm è un'applicazione web sviluppata in Angular che permette di selezionare, analizzare e visualizzare aree geografiche su mappa tramite Leaflet e OpenStreetMap. Il progetto integra:
+`GreenRatingAlgorithm` è un'applicazione web full-stack per l'analisi urbanistica e ambientale della regola 3-30-300 sul verde urbano.
 
-- **Selezione interattiva di zone**: l'utente può disegnare e modificare poligoni (inizialmente rettangolari) direttamente sulla mappa.
-- **Ricerca geografica**: tramite una search-bar integrata, è possibile cercare e localizzare indirizzi e luoghi sfruttando OSM Nominatim.
-- **Editing geometrico avanzato**: la toolbar Leaflet Draw consente di modificare, spostare o eliminare la zona selezionata, con gestione automatica dei controlli.
-- **Integrazione dati OSM**: la zona selezionata può essere usata per interrogare le API OSM e ottenere dati interni all'area.
-- **Architettura modulare**: il codice è organizzato in componenti Angular, con servizi condivisi per la comunicazione tra le mappe e gestione degli eventi.
+Questo repository contiene l'intero progetto, suddiviso in:
 
+1.  **Backend (Flask/GeoPandas):** Un'API REST che riceve coordinate geografiche, interroga dati live da OpenStreetMap ed esegue algoritmi di analisi geospaziale ottimizzati.
+2.  **Frontend (Angular/Leaflet):** Un'applicazione web (SPA con SSR) che permette all'utente di disegnare un'area di studio su una mappa, inviarla al backend e visualizzare i risultati dell'analisi (edifici conformi, copertura arborea, ecc.).
 
-Questa repository è pensata per progetti di analisi ambientale, urbanistica, green rating e visualizzazione dati territoriali, con un'interfaccia moderna e responsive.
+# Backend
 
-## Lato Server
+## 1. Descrizione
 
-- **Backend Python robusto**: gestione avanzata degli errori, conversione automatica da Overpass JSON a GeoJSON, fix per colonne mancanti e dati sporchi.
-- **Gestione CRS**: tutti i GeoDataFrame ora hanno il CRS impostato e vengono riproiettati senza errori.
-- **Fix colonne mancanti**: controllo e gestione delle colonne 'building', 'natural', ecc. per evitare crash con dati incompleti.
-- **Endpoint multipli Overpass**: il server prova più endpoint Overpass e gestisce i timeout in modo automatico.
-- **Supporto multiutente**: il backend Flask può essere avviato su tutte le interfacce (`0.0.0.0`) per permettere l'accesso da altri dispositivi in rete.
-- **Conversione dati**: pipeline completa per passare da Overpass JSON a GeoDataFrame, con filtri robusti e compatibilità con gli algoritmi di rating.
-- **Best practice .gitignore e requirements**: aggiornati per evitare il tracciamento di cache, file temporanei e dipendenze inutili.
-- **Log errori e warning**: logging migliorato per distinguere tra errori bloccanti e warning di Overpass.
-- **Ottimizzazione algoritmi**: tutti gli algoritmi ora gestiscono dati sporchi, CRS, colonne mancanti e conversioni senza crash.
+Questo è il servizio backend per il progetto di tesi e ricerca "GreenRatingAlgorithm".
 
-Per dettagli tecnici sugli algoritmi o la struttura delle query, consulta i file Python nella cartella `Server/Algoritmi`.
+È un'API REST basata su **Flask** che calcola la regola urbanistica del **3-30-300**. Il servizio riceve un poligono definito dall'utente, interroga i dati *live* da **OpenStreetMap (OSM)** tramite l'API Overpass, ed esegue un'analisi geospaziale complessa per valutare la conformità dell'area.
 
----
-# Greenratingalgorithm
+## 2. Stack Tecnologico
+
+* **Server API:** Flask
+* **Analisi Geospaziale:** GeoPandas, Shapely
+* **Manipolazione Dati:** Pandas, NumPy
+* **Sorgente Dati:** Overpass API (via `requests`)
+* **Conversione Dati:** `osm2geojson`
+
+## 3. Esecuzione Locale
+
+Per eseguire il server in modalità di debug locale:
+
+1.  Assicurarsi di avere un ambiente virtuale Python (es. `python -m venv venv`).
+2.  Attivare l'ambiente (es. `source venv/bin/activate`).
+3.  Installare le dipendenze:
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  Avviare il server Flask in modalità debug:
+    ```bash
+    python server.py
+    ```
+
+Il server sarà in ascolto su `http://127.0.0.1:5000`.
+
+**Nota:** Assicurarsi che `requirements.txt` sia aggiornato. Le dipendenze minime sono: `flask`, `flask-cors`, `geopandas`, `pandas`, `shapely`, `requests`, `osm2geojson`, `numpy`.
+
+## 4. Documentazione API
+
+L'API espone un singolo endpoint per l'analisi completa.
+
+### POST /api/greenRatingAlgorithm
+
+Esegue l'analisi 3-30-300 completa sul poligono fornito.
+
+**Success Response (200 OK):**
+*Il server restituisce 4 GeoJSON (serializzati come stringhe) che il frontend può parsare e renderizzare.*
+```json
+{
+  "messaggio": "Analisi completata con successo.",
+  "edifici": "<GeoJSON FeatureCollection (Tutti gli edifici nell'area)>",
+  "alberi": "<GeoJSON FeatureCollection (Tutta la copertura arborea: alberi, boschi, foreste)>",
+  "aree_verdi": "<GeoJSON FeatureCollection (Tutte le aree ricreative: parchi, prati)>",
+  "risultati": "<GeoJSON FeatureCollection (Solo gli edifici che soddisfano tutte le regole)>"
+}
+
+Error Responses (Esempi):
+
+    400 Bad Request: Il poligono di input non è valido (es. ha meno di 4 punti).
+
+    504 Gateway Timeout: Uno dei server di Overpass è sovraccarico e non ha risposto.
+
+    500 Internal Server Error: Errore di calcolo interno (l'errore viene loggato sul server).
+
+5. Documentazione Tecnica Approfondita
+
+Per un'analisi dettagliata della metodologia, delle ottimizzazioni (es. ottimizzazione Regola 3 da O(N3) a O(NlogN)) e delle decisioni architetturali (es. gestione dei tag OSM non omogenei), si rimanda al file DOCUMENTAZIONE_TECNICA.md.
+
+# APPLICAZIONE FRONTEND
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.2.0.
 

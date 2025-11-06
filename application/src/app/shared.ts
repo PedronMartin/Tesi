@@ -59,6 +59,33 @@ export class SharedService {
       },
       error => console.error("Errore:", error)
     );
+    /*
+      aggiunta in caso di gestione errore di ritorno dal server:
+        this.isLoading = true; // <-- Attiva lo spinner (Task 2)
+        this.errorMessage = '';  // <-- Resetta il messaggio di errore
+
+        this.serverContacter.runFullAnalysis(myPolygon).subscribe({
+          
+          // 1. In caso di SUCCESSO
+          next: (response) => {
+            this.isLoading = false; // <-- Spegni lo spinner
+            // ... (fai le tue cose, es. naviga alla pagina dei risultati)
+            console.log("Risposta ricevuta!", response);
+          },
+          
+          // 2. In caso di ERRORE (catturato dal nostro handleError)
+          error: (err) => {
+            this.isLoading = false; // <-- Spegni lo spinner
+            
+            // 'err.message' ora contiene il messaggio "pulito"
+            // che abbiamo creato in handleError
+            this.errorMessage = err.message; 
+            
+            // TODO: Mostra this.errorMessage all'utente in un <div class="alert">
+            console.error("Errore gestito:", err.message);
+          }
+        });
+    */
   }
 
   /* TODO:

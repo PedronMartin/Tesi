@@ -14,7 +14,7 @@
                 Richiederebbe un sistema DEM (Digital Elevation Model) per il terreno, l'altezza di ogni edificio
                 e l'altezza di ogni albero (quasi mai presente in OSM); gli ultimi due si potrebbero simulare con un'altezza media,
                 ma l'algoritmo perderebbe di precisione;
-            2- per il momento il buffer è impostato a 100 metri. Bisognerebbe riguardarsi la definizione originale dell'algoritmo e 
+            2- per il momento il buffer è impostato a 50 metri. Bisognerebbe riguardarsi la definizione originale dell'algoritmo e 
                 CHIEDERE A PROFESSORE;
             3- per il momento usiamo solo gli altri edifici. CHIEDERE A PROFESSORE se aggiungere altro come mura o altro,
                 al costo però di rallentare molto l'algoritmo generale in quanto richiederebbe una richiesta OVERPASS in più e almeno 
@@ -28,7 +28,7 @@ import logging
 import geopandas as gpd
 
 #costante di buffer di visuale in metri
-view_buffer = 100
+view_buffer = 50
 
 """
     Funzione che calcola il numero di alberi visibili da ogni edificio
