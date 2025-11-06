@@ -39,6 +39,12 @@ Per eseguire il server in modalità di debug locale:
     ```
 
 Il server sarà in ascolto su `http://127.0.0.1:5000`.
+All'occorrenza, è stato anche eseguito un deploy su Render, contattabile facendo lo switch dell'endpoint del server nell'applicazione angular 
+in *server-contacter.ts* dove segue:
+```
+  //private apiUrl = 'https://greenratingalgorithmprovider.onrender.com/api/greenRatingAlgorithm';
+  private apiUrl = 'http://localhost:5000/api/greenRatingAlgorithm';
+```
 
 **Nota:** Assicurarsi che `requirements.txt` sia aggiornato. Le dipendenze minime sono: `flask`, `flask-cors`, `geopandas`, `pandas`, `shapely`, `requests`, `osm2geojson`, `numpy`.
 
