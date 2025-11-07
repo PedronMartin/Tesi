@@ -57,7 +57,7 @@ L'API espone un singolo endpoint per l'analisi completa.
 Esegue l'analisi 3-30-300 completa sul poligono fornito.
 
 **Request Body (JSON):**
-*L'input deve essere un poligono con almeno 4 punti (per un triangolo valido, dove il primo e l'ultimo punto coincidono).*
+*L'input deve essere un poligono con almeno 4 punti (il primo e l'ultimo punto devono coincidere).*
 ```json
 {
   "polygon": [
