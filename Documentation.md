@@ -11,7 +11,7 @@ Il backend è un'**API REST** monolitica basata su **Flask**.
 Il flusso logico di una richiesta è il seguente:
 1.  Un client (Angular) invia una richiesta `POST /api/greenRatingAlgorithm` con un poligono GeoJSON;
 2.  Il server **Flask** riceve la richiesta;
-3.  Il server costruisce ed esegue **3 query parallele** all'API **Overpass** per scaricare i dati OSM (Edifici, Copertura Arborea, Aree Verdi);
+3.  Il server costruisce ed esegue **3 query sequenziali** all'API **Overpass** per scaricare i dati OSM (Edifici, Copertura Arborea, Aree Verdi);
 4.  I dati JSON grezzi vengono convertiti e "spacchettati" in **GeoDataFrame** (GDF) ottimizzati tramite **GeoPandas** e **Pandas**;
 5.  I GDF puliti vengono passati al modulo `analizzatore_centrale.py`, che orchestra l'esecuzione dei 3 algoritmi (`regola3`, `regola30`, `regola300`);
 6.  Gli algoritmi eseguono calcoli geospaziali (buffer, sjoin, clip, line-of-sight) usando GeoPandas;
@@ -27,7 +27,7 @@ E' stato usato principalmente per:
     * **Ecosistema:** si integra perfettamente con Gunicorn per il deploy in produzione (come su Render).
 
 ### 3.2. GeoPandas & Shapely
-**Pandas** è una libreria Python per l'analisi e la manipolazione dei dati. Il suo componente principale è il DataFrame, ossia una tabella in-memoria che permette di caricare, pulire, filtrare, aggregare e unire set di dati complessi in modo incredibilmente efficiente. **GeoPandas** è Pandas per i dati geografici. Estende i DataFrame di Pandas per includere una colonna "geometry", permettendo di trattare poligoni, punti e linee come dati. **Shapely** invece è la libreria C sottostante che esegue materialmente le operazioni (es. `buffer`, `intersects`) sui dati contenuti nella colonna geomety di un GDF.
+**Pandas** è una libreria Python per l'analisi e la manipolazione dei dati. Il suo componente principale è il DataFrame, ossia una tabella in-memoria che permette di caricare, pulire, filtrare, aggregare e unire set di dati complessi in modo incredibilmente efficiente. **GeoPandas** è Pandas per i dati geografici. Estende i DataFrame di Pandas per includere una colonna "geometry", permettendo di trattare poligoni, punti e linee come dati. **Shapely** invece è la libreria C sottostante che esegue materialmente le operazioni (es. `buffer`, `intersects`) sui dati contenuti nella colonna geometry di un GDF.
 
 Senza, ogni calcolo (Regola 3, 30, 300) avrebbe richiesto centinaia di righe di complessa matematica geometrica. La maggior parte delle operazioni (es. `.sindex`, `.buffer`, `.intersects`) sono ottimizzate e scritte in **C/C++**.
 
@@ -128,7 +128,7 @@ L'algoritmo è stato progettato per risolvere le falle logiche di un'implementaz
 
 #### 4.2.5. Limiti Noti e Compromessi Metodologici
 
-* **Approssimazione del Raggio (`TREE_RADIUS`):** l'uso di un raggio fisso (es. `2 metri`) per gli alberi puntiformi è un'approssimazione significativa. Questo valore è un numbero ambiguo e andrebbe validato o sostituito con una stima scientifica (es. raggio medio della chioma per alberi urbani comuni) per migliorare l'accuratezza del calcolo;
+* **Approssimazione del Raggio (`TREE_RADIUS`):** l'uso di un raggio fisso (es. `2 metri`) per gli alberi puntiformi è un'approssimazione significativa. Questo valore è un numero ambiguo e andrebbe validato o sostituito con una stima scientifica (es. raggio medio della chioma per alberi urbani comuni) per migliorare l'accuratezza del calcolo;
 * **Interpretazione dei Dati OSM (Punto Chiave):** l'algoritmo adotta un'interpretazione "pura" di "copertura arborea", usando solo la Query 1 (`tree`, `forest`, `wood`). Esclude deliberatamente le "Aree Verdi Ricreative" (Query 2: `leisure=park`, `landuse=grass`) dal calcolo. Questa è una scelta metodologica che impatta direttamente e significativamente il risultato finale (spiegando perché è spesso <10%).
 
 ### 4.3 Regola 300 (Regola300.py)
@@ -160,7 +160,7 @@ Questo algoritmo è il più efficiente del set, poiché è **completamente vetto
 #### 4.3.4. Ottimizzazione Critica (Vettorizzazione vs. Loop)
 
 * **Problema:** un'implementazione "ingenua" (un ciclo `for` su ogni edificio, che a sua volta fa un ciclo `for` su ogni area verde per controllare l'intersezione) avrebbe una complessità molto alta e sarebbe lenta;
-* **Soluzione (Vettorizzazione):** l'uso di **`gpd.sjoin`** sostituisce entrambi i cicli. L'operazione è interamente eseguita a livello C (tramite Shapely e indici R-tree) con una complessità logaritmica (circa O(N/logM)), risultando quasi istantanea.
+* **Soluzione (Vettorizzazione):** l'uso di **`gpd.sjoin`** sostituisce entrambi i cicli. L'operazione è interamente eseguita a livello C (tramite Shapely e indici R-tree) con una complessità logaritmica (circa O(NlogM)), risultando quasi istantanea.
 
 #### 4.3.5. Limiti Noti e Compromessi Metodologici
 
@@ -204,9 +204,9 @@ L'unica chiave richiesta da questo oggetto è `polygon`.
 * **Soluzione:** È stata implementata una funzione "wrapper" (`overpass_query`) che contiene una **lista di endpoint Overpass noti**.
     ```python
     overpass_endpoints = [
-        "[https://overpass-api.de/api/interpreter](https://overpass-api.de/api/interpreter)",
-        "[https://overpass.kumi.systems/api/interpreter](https://overpass.kumi.systems/api/interpreter)",
-        "[https://overpass.openstreetmap.ru/api/interpreter](https://overpass.openstreetmap.ru/api/interpreter)"
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.openstreetmap.ru/api/interpreter"
     ]
     ```
 * **Flusso:** La funzione itera su questa lista:
@@ -311,40 +311,134 @@ Questa è la fase più critica del backend. I dati grezzi (l'input dell'utente e
 
 * gestione "Edge Effect": il poligono viene passato alla funzione increasePolygon(), che come detto gonfia opportunamente il poligono per includere elementi sul bordo;
 
-* Query Overpass: la funzione overpass_query() viene chiamata 3 volte (per Edifici, Alberi, Aree Verdi) usando le stringhe poligono appropriate. L'output è un JSON grezzo di Overpass (un dizionario con una chiave elements);
+* query Overpass: la funzione overpass_query() viene chiamata 3 volte (per Edifici, Alberi, Aree Verdi) usando le stringhe poligono appropriate. L'output è un JSON grezzo di Overpass (un dizionario con una chiave elements);
 
 * conversione in GeoJSON: ogni JSON grezzo di Overpass viene passato a osm2geojson.json2geojson(). L'output è un JSON standard in formato GeoJSON ({"type": "FeatureCollection", "features": [...]}). Questa fase ha richiesto un controllo robusto rispetto alla possibilità di ricevere dati non omogenei o vuoti da parte di Overpass. Infatti, è consentito ai fini dell'algoritmo non avere alberi e/o zone verdi di ritorno dalle query Overpass; è invece obbligatorio avere degli edifici, altrimenti il calcolo perde di senso logico.
 
-* conversione in GDF: ogni GeoJSON viene passato a gpd.GeoDataFrame.from_features(). L'output è un GDF (un DataFrame GeoPandas) che ha una colonna geometry e una colonna tags (che contiene un dizionario Python);
+* conversione in GDF: ogni GeoJSON viene passato a gpd.GeoDataFrame.from_features(). L'output è un GDF che ha una colonna geometry e una colonna tags, che contiene un dizionario chiave-valore Python, con le varie informazioni contenute nel db di OSM (es. id, nome edificio, tipo edificio ecc. ecc.);
 
-* spacchettamento (Il Fix Critico): Ogni GDF viene passato alla funzione unpack_gdf_features(). Questa funzione "spacchetta" la colonna tags (piena di dizionari e None) in colonne separate (natural, landuse, building, ecc.). Questo è il passaggio che produce i GDF "puliti" pronti per gli algoritmi.
+* spacchettamento: ogni GDF viene passato alla funzione unpack_gdf_features(). Questa funzione "spacchetta" la colonna tags (piena di dizionari e None) in colonne separate (natural, landuse, building, ecc.). Questo è il passaggio finale che produce i GDF puliti pronti per gli algoritmi.
+
+### 5.4. Post-processing (da GDF a JSON di output)
+Questa è la fase finale del flusso di richiesta. Gli algoritmi (eseguiti in `analizzatore_centrale.py`) hanno terminato il loro lavoro e hanno restituito i risultati alla funzione principale `greenRatingAlgorithm` in `server.py`. A questo punto, il server ha in memoria **4 GeoDataFrame (GDF)** principali che deve inviare al client:
+1.  `edifici`: il GDF "spacchettato" di tutti gli edifici nell'area di studio;
+2.  `alberi`: il GDF "spacchettato" di tutta la copertura arborea;
+3.  `aree_verdi`: il GDF "spacchettato" delle aree ricreative;
+4.  `result`: il GDF finale, contenente solo gli edifici che hanno superato l'analisi.
+
+#### 5.4.1. Serializzazione in GeoJSON
+
+Il passaggio chiave del post-processing è la **serializzazione**, ovvero la conversione da un oggetto GDF a una stringa di testo in formato GeoJSON. Per ogni GDF, viene chiamato il metodo nativo di GeoPandas: **`.to_json()`**. Questo metodo converte l'intero GeoDataFrame (sia la colonna `geometry` che tutte le colonne di dati, come `visible_trees_count`, `id`, `name`, ecc.) in una **singola stringa di testo** che rispetta lo standard GeoJSON `FeatureCollection`.
+
+Un problema potenziale è se uno dei GDF è vuoto (ad esempio, `result` è vuoto perché nessun edificio ha superato l'analisi). Chiamare `.to_json()` su un GDF vuoto creato in modo non corretto può causare un crash (come spiegato nella sezione 5.5). Il codice implementa quindi un controllo di sicurezza prima della serializzazione:
+    ```python
+    edifici_geojson = edifici.to_json() if not edifici.empty else empty_geojson_fallback
+    ```
+Viene quindi controllato se il GDF non è vuoto (`not edifici.empty`). Se non lo è, si esegue il costoso `.to_json()`. Se invece **è vuoto**, assegna direttamente una stringa standard che rappresenta un GeoJSON vuoto (`empty_geojson_fallback`), garantendo che il frontend riceva sempre un dato valido da parsare.
+
+#### 5.4.3. Payload di Output
+
+Infine, il server costruisce il dizionario Python finale che fungerà da corpo della risposta. È fondamentale notare che i valori di questo dizionario non sono gli oggetti, ma le **stringhe GeoJSON** appena create.
+
+**Payload di Output (Esempio):**
+```json
+{
+  "messaggio": "Analisi completata con successo.",
+  "edifici": "{\"type\": \"FeatureCollection\", \"features\": [...]}",
+  "alberi": "{\"type\": \"FeatureCollection\", \"features\": [...]}",
+  "aree_verdi": "{\"type\": \"FeatureCollection\", \"features\": [...]}",
+  "risultati": "{\"type\": \"FeatureCollection\", \"features\": [...]}"
+}
+```
+
+L'intero dizionario viene quindi passato alla funzione jsonify() di Flask, che lo impacchetta in una risposta HTTP 200 OK con l'header corretto (Content-Type: application/json) e lo invia al client Angular.
+
 
 ---
 
+## 6. Punti Aperti
 
+1.  **[Regola 300] Soglia Aree Verdi:**
+    La regola 300 implica un'area verde "significativa". Il nostro algoritmo attuale considera *qualsiasi* poligono (`park`, `grass`), incluse le piccole aiuole.
+    La mia idea sarebbe di introdurre un filtro basato sull'area, e ho pensato ad una soglia di **1 ettaro (10.000 mq)**.
 
+2.  **[Regola 30] Definizione di "Copertura Arborea":**
+    La regola parla di "Copertura Arborea". L'implementazione attuale è "pura" e calcola la copertura usando solo la Query 1 (`tree`, `forest`, `wood`).
+    Il mio progetto quindi si basa unicamente su alberi, foreste e boschi, ma produce percentuali di copertura molto basse (spesso <10%) per le aree urbane.
+    Vista questa limitazione, l'interpretazione è corretta oppure dobbiamo ampiarla e includere nel calcolo anche le "Aree Verdi Ricreative" come parchi e aiuole?
 
+3.  **[Regola 30] Raggio Alberi Puntiformi:**
+    Per calcolare l'area degli alberi (considerati punti), usiamo un raggio simulato. Attualmente è impostato a `2 metri`.
+    È un'approssimazione accettabile? Oppure dovremmo basarci su una stima scientifica basata sul raggio medio della chioma per alberi urbani comuni per migliorare l'accuratezza?
 
+4.  **[Regola 3] Buffer di Visuale:**
+    Per ottimizzare la `regola3`, cerchiamo alberi solo entro un buffer di prossimità. Attualmente è impostato a `50 metri`.
+    È un'approssimazione valida per definire la "visuale" di un edificio in un contesto urbano?
 
+5.  **[Regola 3] Ostacoli della Vista:**
+    L'algoritmo di linea di vista (`is_unobstructed`) attualmente considera come ostacoli visivi **solo** gli altri edifici.
+    Vogliamo estendere questo controllo e includere altri ostacoli mappati su OSM (es. muri con `barrier=wall` o gli stessi alberi)? Tuttavia, questo richiederebbe una query Overpass aggiuntiva e un piccolo impatto sulla performance.
 
+### 6.1. Sviluppi Futuri Proposti
 
+1.  **Refactoring per Punteggi Parziali (Priorità Alta):**
+    * **Proposta:** Modificare `analizzatore_centrale.py`. Invece di restituire solo gli edifici "vincitori" nel GDF `risultati`, dovrebbe restituire un **unico GDF `edifici` arricchito** che contenga, *per ogni edificio*, i punteggi parziali (es. `visible_trees_count`, `score_300`, `coverage_percentage`).
+    * **Beneficio:** Questo permetterebbe al frontend di visualizzare mappe "heatmap" e pop-up dettagliati anche per gli edifici non conformi (grigi), spiegando *perché* hanno fallito il test (es. "Alberi visibili: 0/3").
 
+2.  **Elaborazione Asincrona (Scalabilità):**
+    * **Problema:** Aree di studio molto grandi (es. >2000 edifici) superano i timeout del server (300 secondi) a causa dei calcoli della `regola3` e dei timeout di Overpass.
+    * **Proposta (Futura):** Spostare l'analisi da un processo sincrono (HTTP) a uno **asincrono**, utilizzando una coda di messaggi (es. Redis) e un "worker" separato (es. Celery) per gestire i lavori lunghi.
 
-## 6. Punti Aperti (Discussione Metodologica)
-
-Questa sezione elenca le 4 approssimazioni metodologiche chiave da discutere e validare con il team di ricerca.
-
-1.  **[Regola 300] Soglia Area:** La letteratura (OMS, UniFi) indica una soglia di **0.5-1 ettaro** per un'area verde "significativa". Si propone di adottare **1 ettaro**. È corretto per questo studio?
-2.  **[Regola 3] Buffer Visuale:** Il buffer di **100 metri** per la "vista" è un'approssimazione valida per un contesto urbano?
-3.  **[Regola 30] Definizione "Arborea":** La "Copertura Arborea" (Regola 30) deve essere "pura" (solo alberi/boschi, Query 1) o deve includere anche le "Aree Verdi Ricreative" (parchi/prati, Query 2)? (L'implementazione attuale è "pura").
-4.  **[Regola 30] Raggio Alberi:** Quale raggio simulato (in metri) dovremmo usare per gli alberi puntiformi (`natural=tree`)? (L'implementazione attuale usa `2 metri`, ma `5 metri` potrebbe essere più realistico).
 
 ---
 
-## 7. Sviluppi Futuri Proposti
+## 7. Sviluppi Futuri e Architetture Alternative
 
-* **Refactoring del Modello Dati per Analisi Dettagliata:**
-    Attualmente, il backend restituisce i dati grezzi e un GDF separato (`risultati`) con i soli edifici "conformi". Un'evoluzione chiave sarà modificare `analizzatore_centrale.py` affinché restituisca un **unico GeoDataFrame `edifici` arricchito**, contenente i punteggi parziali (`visible_trees_count`, `score_300`, `coverage_percentage`) per *ogni* edificio, non solo per i vincitori. Questo permetterà al frontend di visualizzare mappe "heatmap" e pop-up dettagliati anche per gli edifici non conformi, spiegando *perché* hanno fallito il test.
+### 7.1. Sviluppi a Breve Termine
 
-* **Elaborazione Asincrona (Scalabilità):**
-    Per aree di studio molto grandi (che superano i 300 secondi di timeout), un'evoluzione futura del backend dovrebbe spostare l'analisi da un processo sincrono (HTTP) a uno **asincrono**, utilizzando una coda di messaggi (es. Redis) e un "worker" separato (es. Celery).
+Queste sono le funzionalità da implementare per completare il "core" dell'applicazione e massimizzare l'utilità dei dati già calcolati.
+
+#### 7.1.1. Refactoring per punteggi parziali
+
+Il backend restituisce i dati grezzi (`edifici`, `alberi`) e un GDF separato (`risultati`) con i *soli* edifici "conformi" a tutte le regole. Un edificio "non conforme" non ha dati sui suoi punteggi, rendendo impossibile per l'utente capire *perché* ha fallito il test.
+
+La proposta sarebbe restituire, oltre agli edifici conformi, un **unico GeoDataFrame `edifici` arricchito** che contenga, *per ogni edificio*, i punteggi parziali (es. `visible_trees_count`, `score_300`, `coverage_percentage`). Questo è un cambiamento architetturale fondamentale che sblocca due funzionalità critiche del frontend:
+    1.  **Pop-up Dettagliati:** l'utente potrà cliccare su *qualsiasi* edificio (conforme o meno) e vedere i suoi punteggi (es. "Alberi visibili: 0/3", "Accesso area verde: Sì");
+    2.  **Heatmap:** il frontend potrà applicare uno stile dinamico (es. una scala di colori dal rosso al verde) a tutti gli edifici, creando una "heatmap" visiva della qualità del verde urbano.
+
+#### 7.1.2. Espansione API (Micro-endpoint)
+
+Si potrebbe sfruttare la modularità di Flask per creare nuovi endpoint che espongano le singole regole (es. `POST /api/regola3`, `POST /api/regola300`).
+Questo permetterebbe al frontend di eseguire analisi più mirate (es. "mostrami solo la regola 3") senza eseguire l'intero (e più lento) flusso 3-30-300.
+
+#### 7.1.3. Gestione Errori Frontend
+
+Andrebbe implementata la logica `catchError` nel servizio Angular per intercettare gli errori HTTP controllati dal backend (`400`, `504`, ecc.).
+L'applicazione smetterà di fallire in modo silenzioso e mostrerà all'utente messaggi chiari (es. "Area troppo vasta" o "Server Overpass sovraccarico").
+
+### 7.2. Sviluppi a lungo termine
+
+L'architettura attuale (calcolo *live* su richiesta) ha un limite invalicabile: i **timeout**. Per aree vaste, l'analisi potrebbe fallire o richiedere eccessivo tempo per una web-app. Per superare questo limite, è necessario cambiare radicalmente l'approccio.
+
+#### 7.2.1. Modello 1: Pre-calcolo e Database
+
+Invece di calcolare i punteggi "live" quando l'utente fa la richiesta, i punteggi vengono **pre-calcolati** e salvati in un database. L'API REST diventa incredibilmente veloce, perché deve solo *leggere* risultati già pronti.
+* **Flusso di Implementazione:**
+    1.  **Backend:** si crea uno script separato (non Flask) che esegue i nostri algoritmi (`regola3`, `regola30`, `regola300`) sull'intera nazione (o regione, es. "tutta l'Italia");
+    2.  **Database:** i risultati (le informazioni di ogni edificio OSM e i suoi 3 punteggi) vengono salvati in un database;
+    3.  **Job Schedulato:** questo script viene eseguito automaticamente (es. una volta al mese) per aggiornare i punteggi con i nuovi dati di OSM;
+    4.  **API (Live):** l'API Flask (`server.py`) cambia completamente:
+        a. riceve il poligono dall'utente.
+        b. fa una query Overpass *leggera* per ottenere solo gli **ID** degli edifici in quell'area (oltre che alberi e zone verdi). Questa parte rimarrebbe invariata rispetto a quanto fatto finora;
+        c. fa una query estremamente più veloce al database;
+        d. restituisce tutti gli edifici e i dati della zona prelevati e non calcolati al frontend.
+* **Vantaggi (oltre alla velocità):**
+    * **Affidabilità:** l'app funzionerebbe anche se Overpass fosse offline (perché i dati sono già nel nostro DB);
+    * **Scalabilità:** il server potrebbe gestire facilmente più richieste contemporaneamente (perchè sarebbe una `SELECT` da un DB, e non un calcolo O(NlogN));
+    * **Analisi Dati:** avendo un database comodo e veloce, si potrebbero facilmente aggiungere ulteriori calcoli computazionali (con relative API o meno) dentro al server, per esempio per il calcolo medio di copertura arboera nella nazione.
+
+#### 7.2.2. Modello 2 divisione per Quartieri
+
+Questo sarebbe un ibrido del modello precedente. Invece di calcolare *tutta* l'Italia, si pre-calcolano solo le principali città, suddivise per confini amministrativi (quartieri). Il frontend, invece di disegnare un poligono, offre un menu a tendina ("Seleziona Città" -> "Seleziona Quartiere"). Il backend recupera il GeoJSON pre-calcolato per quel quartiere.
+
+Questo approccio è meno "universale" e dipende dalla disponibilità di file GeoJSON/Shapefile ufficiali per i confini dei quartieri, che non sono sempre disponibili o standardizzati. Come pro invece, è un'idea che rispetta più fedelmente l'idea originale dell'algoritmo 3-30-300: il calcolo verrebbe eseguito per i soli contesti urbani (evitando errori generici per zone particolari), e soprattutto la copertura arborea verrebbe calcolata sulla base dei quartieri, e non sulla base di un'intera città o del poligono richiesto dall'utente.
