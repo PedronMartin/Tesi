@@ -169,34 +169,166 @@ Questo algoritmo è il più efficiente del set, poiché è **completamente vetto
 * **Soglia Area Verde (Punto Aperto):** l'efficacia della regola dipende dalla soglia usata per definire un'area verde "significativa" (il punto metodologico 1 da discutere). Ci sono infatti elementi contrassegnati come 'aree verdi' che sono piccole aiuole pubbliche, che probabilmente andrebbero scartate.
 
 
+---
 
+## 5. Dati ---> input, output, elaborazione e conversione
 
+Questa sezione descrive il completo percorso dei dati dall'arrivo al backend, fino al ritorno al client.
 
+### 5.1. Input: Dati dal Client (Angular)
 
+Il backend espone un singolo endpoint (`/api/greenRatingAlgorithm`) che si aspetta una richiesta `POST` contenente un oggetto JSON.
+L'unica chiave richiesta da questo oggetto è `polygon`.
 
+* **Formato:** `polygon` è un **Array di Array** di coordinate.
+* **Ordine Coordinate:** L'ordine è `[latitudine, longitudine]`, che è il formato nativo usato da Leaflet quando si disegna sulla mappa.
+* **Requisito:** Per essere un poligono valido, l'array deve contenere almeno 4 punti.
 
+**Esempio di Payload (Input):**
+```json
+{
+  "polygon": [
+    [45.464, 9.188],
+    [45.462, 9.188],
+    [45.462, 9.190],
+    [45.464, 9.190],
+    [45.464, 9.188]
+  ]
+}
+```
 
+### 5.2 Query Overpass
+#### 5.2.1 Robustezza: Fallback e Retry (`overpass_query`)
 
+* **Problema:** L'API Overpass è un servizio pubblico, gratuito e *stateless*. Questo significa che è spesso sovraccarico e può fallire (restituendo `504 Gateway Timeout`) o essere inaffidabile. Affidarsi a un singolo endpoint (come `overpass-api.de`) renderebbe il nostro backend instabile.
+* **Soluzione:** È stata implementata una funzione "wrapper" (`overpass_query`) che contiene una **lista di endpoint Overpass noti**.
+    ```python
+    overpass_endpoints = [
+        "[https://overpass-api.de/api/interpreter](https://overpass-api.de/api/interpreter)",
+        "[https://overpass.kumi.systems/api/interpreter](https://overpass.kumi.systems/api/interpreter)",
+        "[https://overpass.openstreetmap.ru/api/interpreter](https://overpass.openstreetmap.ru/api/interpreter)"
+    ]
+    ```
+* **Flusso:** La funzione itera su questa lista:
+    1.  prova a eseguire la query sul primo endpoint (`overpass-api.de`);
+    2.  se questo fallisce (per `Timeout` o `RequestException`), la funzione **non va in crash**. Invece, logga un warning (es. `[WARNING] server: ... 504 Server Error...`), attende 2 secondi e **ritenta automaticamente** la stessa query sull'endpoint successivo (`kumi.systems`);
+    3.  restituisce i dati del primo server che risponde con successo;
+    4.  se *tutti* gli endpoint falliscono, e solo allora, la funzione restituisce `None` (che viene poi gestito dal backend per evitare crash).
 
+Questo approccio rende l'acquisizione dei dati significativamente più resiliente ai problemi temporanei di un singolo server Overpass.
 
+#### 5.2.2 Preparazione del poligono di analisi
+Il backend riceve come detto i dati dal client in formato JSON, specificamente un array di array (il formato nativo di Leaflet), dove ogni sotto-array è una coppia `[latitudine, longitudine]`. L'API Overpass, tuttavia, non accetta JSON. Per il suo predicato `(poly:...)`, richiede una singola **stringa** di testo con le coordinate separate da spazi, nell'ordine `lat lon lat lon...`.
+Per eseguire questa traduzione, usiamo una *list comprehension* Python combinata con il metodo `.join()`. Questo itera su ogni coppia `[lat, lon]`, la trasforma in una stringa `f"{lat} {lon}"`, e poi unisce tutte queste stringhe in un'unica stringa, separandole con uno spazio.
+    ```python
+    poly_str = " ".join([f"{lat} {lon}" for lat, lon in polygon])
+    ```
+**Output (per Overpass):** Esempio di una singola stringa compatibile.
+    ```
+    "45.464 9.188 45.462 9.188 45.462 9.190 45.464 9.188"
+    ```
+#### 5.2.3 Gonfiamento del poligono (`increasePolygon`)
+Questa `poly_str` diventa la stringa di base che viene passata direttamente alla `build_query` (per la Query 0 - Edifici), in quanto vogliamo esattamente gli edifici contenuti nel poligono disegnato dall'utente.
 
+* **Problema:** Un'implementazione ingenua che cercasse i dati *solo* all'interno del poligono dell'utente anche per alberi e zone verdi fallirebbe. Un edificio al confine dell'area (es. `Edificio A`) non vedrebbe un parco (`Parco B`) che si trova a soli 10 metri di distanza, ma *fuori* dal poligono, portando a un **falso negativo** per la Regola 300.
+* **Soluzione:** Il backend trasforma il poligono di query prima di inviarli a Overpass. Questa logica è gestita dalla funzione `increasePolygon`.
+    1.  il poligono di input (da Angular) viene convertito in un GDF;
+    2.  viene proiettato in un CRS metrico (`EPSG:32632`);
+    3.  viene applicato un **buffer metrico** (es. 50m per la `Regola 3`, 300m per la `Regola 300`);
+    4.  il nuovo poligono "gonfiato" viene riproiettato in `EPSG:4326` e convertito nella stringa per Overpass.
+* **Flusso Finale:**
+    * **Query 0 (Edifici):** usa il poligono **originale** (vogliamo analizzare solo gli edifici *dentro* l'area);
+    * **Query 1 (Alberi):** usa il poligono **gonfiato di 50m** (per permettere alla `Regola 3` di "vedere" alberi appena fuori dal confine);
+    * **Query 2 (Aree Verdi):** usa il poligono **gonfiato di 300m** (per permettere alla `Regola 300` di trovare parchi rilevanti appena fuori dal confine).
 
+#### 5.2.4 Logica di Interrogazione (le 3 Query `build_query`)
 
+Non viene eseguita una singola query "prendi tutto", ma **3 query parallele e distinte**, ognuna ottimizzata per lo scopo specifico di un algoritmo. Questo è gestito dalla funzione `build_query(type, ...)`.
 
+##### Query 0: Edifici
+Lo scopo è ottenere gli edifici che saranno i "soggetti" principali della nostra analisi. I tag OSM è `building` (sia `way` che `relation` per includere edifici complessi). Questa query è input per gli algoritmi `regola3.py` e `regola300.py` (al momento anche `regola30.py` ma è obsoleto).
+```
+            [out:json][timeout:25];
+            (
+            way["building"](poly:"{poly_str}");
+            relation["building"](poly:"{poly_str}");
+            );
+            out body;
+            >;
+            out skel qt;
+```
+
+##### Query 1: Copertura Arborea
+Lo scopo è ottenere tutto ciò che conta come chioma arborea. È l'implementazione "pura" della Regola 30. I tag OSM sono `natural=tree` e `natural=tree_row` (per alberi singoli e filari, che diventano geometrie `Point`), mentre `landuse=forest`, `natural=wood` per boschi e foreste, che diventano geometrie `Polygon`. Questa query è input per `regola3.py` (come "target" da vedere), `regola30.py` (come "numeratore" per il calcolo della copertura).
+```
+            [out:json][timeout:25];
+            (
+              /* ALBERI SINGOLI O IN FILA */
+              node["natural"="tree"](poly:"{poly_str}");
+              node["natural"="tree_row"](poly:"{poly_str}");
+              way["natural"="tree_row"](poly:"{poly_str}");
+              relation["natural"="tree_row"](poly:"{poly_str}");
+              way["natural"="tree"](poly:"{poly_str}");
+              relation["natural"="tree"](poly:"{poly_str}");
+              
+              /* BOSCHI E FORESTE */
+              way["landuse"="forest"](poly:"{poly_str}");
+              relation["landuse"="forest"](poly:"{poly_str}");
+              way["natural"="wood"](poly:"{poly_str}");
+              relation["natural"="wood"](poly:"{poly_str}");
+            );
+            out body;
+            >;
+            out skel qt;
+```
+
+##### Query 2: Aree Verdi Ricreative
+Lo scopo è ottenere gli spazi verdi accessibili, distinti dalla pura copertura arborea.
+I tag OSM sono `leisure=park` e `leisure=garden` per parchi e giardini (da definire invece `landuse=grass`, ossia prati e aiuole). Esclude deliberatamente `landuse=forest` e `natural=wood`, che sono già in Query 1 e non rappresentano necessariamente un'area "ricreativa". Questa query funge da input per `regola300.py` (come "target" per il buffer di 300m).
+```
+            [out:json][timeout:25];
+            (
+              /* PARCHI E GIARDINI */
+              way["leisure"="park"](poly:"{poly_str}");
+              relation["leisure"="park"](poly:"{poly_str}");
+              way["leisure"="garden"](poly:"{poly_str}");
+              relation["leisure"="garden"](poly:"{poly_str}");
+
+              /* PRATI E AIUOLE */
+              way["landuse"="grass"](poly:"{poly_str}");
+              relation["landuse"="grass"](poly:"{poly_str}");
+            );
+            out body;
+            >;
+            out skel qt;
+```
+
+### 5.3. Pre-processing (Da JSON a GeoDataFrame "Pulito")
+
+Questa è la fase più critica del backend. I dati grezzi (l'input dell'utente e l'output di Overpass) vengono trasformati in GeoDataFrame (GDF) puliti e pronti per l'analisi. Il flusso è il seguente:
+
+* ricezione poligono: il server riceve l'array polygon (es. [[45.1, 9.1], ...]);
+
+* gestione "Edge Effect": il poligono viene passato alla funzione increasePolygon(), che come detto gonfia opportunamente il poligono per includere elementi sul bordo;
+
+* Query Overpass: la funzione overpass_query() viene chiamata 3 volte (per Edifici, Alberi, Aree Verdi) usando le stringhe poligono appropriate. L'output è un JSON grezzo di Overpass (un dizionario con una chiave elements);
+
+* conversione in GeoJSON: ogni JSON grezzo di Overpass viene passato a osm2geojson.json2geojson(). L'output è un JSON standard in formato GeoJSON ({"type": "FeatureCollection", "features": [...]}). Questa fase ha richiesto un controllo robusto rispetto alla possibilità di ricevere dati non omogenei o vuoti da parte di Overpass. Infatti, è consentito ai fini dell'algoritmo non avere alberi e/o zone verdi di ritorno dalle query Overpass; è invece obbligatorio avere degli edifici, altrimenti il calcolo perde di senso logico.
+
+* conversione in GDF: ogni GeoJSON viene passato a gpd.GeoDataFrame.from_features(). L'output è un GDF (un DataFrame GeoPandas) che ha una colonna geometry e una colonna tags (che contiene un dizionario Python);
+
+* spacchettamento (Il Fix Critico): Ogni GDF viene passato alla funzione unpack_gdf_features(). Questa funzione "spacchetta" la colonna tags (piena di dizionari e None) in colonne separate (natural, landuse, building, ecc.). Questo è il passaggio che produce i GDF "puliti" pronti per gli algoritmi.
 
 ---
 
-## 5. Decisioni Critiche di Stabilità (Gestione Dati "Sporchi")
 
-### 5.1. Il Crash `unpack_gdf_features`
-* **Problema:** Le nuove query Overpass (Tipo 1) restituiscono un mix di elementi (`tree`, `forest`, `wood`) con set di tag non omogenei. La libreria `gpd.GeoDataFrame.from_features` "si arrende" e smette di spacchettare magicamente i tag, creando invece un'unica colonna `tags` che contiene un mix di dizionari Python (`{...}`) e valori `None`.
-* **Crash:** Le funzioni di Pandas (`pd.json_normalize` o `apply(pd.Series)`) subiscono un **"hard crash"** (a livello C, senza traceback Python) quando tentano di processare questa colonna "sporca", specialmente quando i dizionari `tags` contengono chiavi duplicate (`id`, `type`) che sono già colonne nel GeoDataFrame principale.
-* **Soluzione (Funzione `unpack_gdf_features`):** È stata scritta una funzione di "spacchettamento" robusta che:
-    1.  Sostituisce tutti i `None` nella colonna `tags` con dizionari vuoti (`fillna({})`).
-    2.  Usa `apply(pd.Series)` per convertire i dizionari in un nuovo DataFrame.
-    3.  **Cruciale:** Rimuove le colonne duplicate (es. `type`, `id`) dal nuovo DataFrame dei tag *prima* di eseguire il `.join()`, prevenendo il crash.
 
----
+
+
+
+
+
+
 
 ## 6. Punti Aperti (Discussione Metodologica)
 
