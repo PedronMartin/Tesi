@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 @Injectable({
-  // 'providedIn: root' lo rende un singleton disponibile ovunque (Dependency Injection)
+  // 'providedIn: root' lo rende un singleton disponibile ovunque
   providedIn: 'root'
 })
 export class ServerContacter {

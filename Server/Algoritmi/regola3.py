@@ -5,18 +5,15 @@
         viene quindi tracciato un segmento tra i due, e controllato se qualche altro oggetto (al momento gli altri edifici e basta) ostacolano la visuale.
 
         MANCA:
-            1- controllo altitudine;
-            2- scegliere un buffer di visuale con base scientifica;
-            3- decidere che elementi andare a prelevare da OSM per il controllo degli ostacoli;
+            1- decidere che elementi andare a prelevare da OSM per il controllo degli ostacoli;
 
         SOLUZIONI:
             1- il controllo dell'altitudine sarebbe un'operazione estremamente complessa da implementare. 
                 Richiederebbe un sistema DEM (Digital Elevation Model) per il terreno, l'altezza di ogni edificio
                 e l'altezza di ogni albero (quasi mai presente in OSM); gli ultimi due si potrebbero simulare con un'altezza media,
                 ma l'algoritmo perderebbe di precisione;
-            2- per il momento il buffer è impostato a 50 metri. Bisognerebbe riguardarsi la definizione originale dell'algoritmo e 
-                CHIEDERE A PROFESSORE;
-            3- per il momento usiamo solo gli altri edifici. CHIEDERE A PROFESSORE se aggiungere altro come mura o altro,
+            2-  buffer è impostato a 30 metri, con base scientifica (letteratura Asti);
+            3-  per il momento usiamo solo gli altri edifici. CHIEDERE A PROFESSORE se aggiungere altro come mura o altro,
                 al costo però di rallentare molto l'algoritmo generale in quanto richiederebbe una richiesta OVERPASS in più e almeno 
                 un *logx in più in questo algoritmo.
 """
@@ -28,7 +25,7 @@ import logging
 import geopandas as gpd
 
 #costante di buffer di visuale in metri
-view_buffer = 50
+view_buffer = 30
 
 """
     Funzione che calcola il numero di alberi visibili da ogni edificio
@@ -124,7 +121,7 @@ def run_rule_3(edifici, alberi):
     #itero su ogni edificio
     for idx, edificio in risultato_edifici.iterrows():
 
-        #buffer di 100 metri attorno all'edificio
+        #buffer di 50 metri attorno all'edificio
         buffer = edificio.geometry.buffer(view_buffer)
         
         """

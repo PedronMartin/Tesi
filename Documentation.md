@@ -381,7 +381,7 @@ L'intero dizionario viene quindi passato alla funzione jsonify() di Flask, che l
 
 ### 6.1. Sviluppi Futuri Proposti
 
-1.  **Refactoring per Punteggi Parziali (Priorità Alta):**
+1.  **Refactoring per Punteggi Parziali:**
     * **Proposta:** Modificare `analizzatore_centrale.py`. Invece di restituire solo gli edifici "vincitori" nel GDF `risultati`, dovrebbe restituire un **unico GDF `edifici` arricchito** che contenga, *per ogni edificio*, i punteggi parziali (es. `visible_trees_count`, `score_300`, `coverage_percentage`).
     * **Beneficio:** Questo permetterebbe al frontend di visualizzare mappe "heatmap" e pop-up dettagliati anche per gli edifici non conformi (grigi), spiegando *perché* hanno fallito il test (es. "Alberi visibili: 0/3").
 

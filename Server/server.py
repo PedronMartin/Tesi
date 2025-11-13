@@ -131,12 +131,11 @@ def increasePolygon(poly_coords, rule):
             crs="EPSG:4326"
         )
 
-        # TODO: definire meglio la visuale di una persona rispetto ad un albero per il calcolo della regola 3!!!
         # definisco la dimensione del buffer in metri in base alla regola
         if rule == 300:
-            bufferSize = 300  # buffer di 300 metri
+            bufferSize = 300    # buffer di 300 metri
         elif rule == 3:
-            bufferSize = 50    # buffer di 50 metri
+            bufferSize = 30     # buffer di 30 metri
         
         # proietto in CRS metrico (UTM 32N), calcola buffer, riproietta in lat/lon
         gdf_proj = gdf_input.to_crs("EPSG:32632")
@@ -229,7 +228,7 @@ def greenRatingAlgorithm():
             fuori dal poligono di input.
             """
             formatted_poly = " ".join([f"{lat} {lon}" for lat, lon in polygon])
-            # Shapely Polygon vuole coordinate [(lon, lat)], quindi invertite rispetto a prima (simile a Leaflet)
+            #Shapely Polygon vuole coordinate [(lon, lat)], quindi invertite rispetto a prima (simile a Leaflet)
             poly_coords = [(lon, lat) for lat, lon in polygon]
 
             #creo anche un GDF del poligono in input che servirà alla regola 30 per il calcolo dell'area totale
