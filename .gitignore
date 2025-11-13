@@ -104,3 +104,6 @@ application/dist/
 
 # Altro
 .env
+.angular/
+.vscode/
+.application/greenratingalgorithm/
