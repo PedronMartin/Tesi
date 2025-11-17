@@ -101,9 +101,9 @@ def overpass_query(query):
 
     # lista di endpoint alternativi per la richiesta (spesso sovvraccaricati)
     overpass_endpoints = [
-        "https://overpass-api.de/api/interpreter",
-        "https://overpass.kumi.systems/api/interpreter",
-        "https://overpass.openstreetmap.ru/api/interpreter"
+        "https://lz4.overpass-api.de/api/interpreter",
+        "https://z.overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter"
     ]
     import time
     for url in overpass_endpoints:
