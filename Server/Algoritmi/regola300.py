@@ -82,7 +82,7 @@ def run_rule_300(edifici, aree_verdi):
         edifici_buffer['original_index'] = edifici_buffer.index
 
         # unione spaziale tra i buffer degli edifici e le aree verdi (inner è join base, predicate 'intersects' controlla l'intersezione)
-        join_result = gpd.sjoin(edifici_buffer, aree_verdi_proj, how="inner", predicate='intersects')
+        join_result = gpd.sjoin(edifici_buffer, aree_verdi_filtrate, how="inner", predicate='intersects')
 
         # crea copia per il risultato finale e inizializza colonna punteggio a 0
         risultato_finale = edifici.copy()
