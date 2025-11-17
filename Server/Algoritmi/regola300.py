@@ -17,18 +17,23 @@
                 aree verdi nei 300 metri fuori dalla zona selezionata.
 
         SISTEMATI:
-            1) CHIEDERE A PROFESSORE!
-            2) in teoria nella regola originale sono considerati solo i parchi pubblici e 'grandi' (dobbiamo capire quanto);
+            1) E' stato implementato un filtro per considerare solo le aree verdi con superficie maggiore di una soglia minima;
+            2) IN ATTESA DI DATI COMUNALI da Alessio, che potrebbero avere più informazioni rispetto a OSM;
             3) il buffer di 300 metri parte in automatico dal perimetro dell'edificio grazie a geopandas;
             4) considerato che farlo senza Leaflet ha un costo computazionale importante, e non c'è conflitto se li teniamo separati, optiamo per avere
                 una divisione tra il backend che valuta la regola (linea d'aria) e il frontend che mostra la realtà (percorso), chiaramente maggiore del primo;
+                siccome è stato deciso di avere un precalcolo massiccio nel backend, con salvataggio in un DB, l'aggiunta del percorso pedonale con OSMXML/Graphhopper
+                andrebbe fatta in un secondo momento come arricchimento del dato già calcolato;
             5) CHIEDERE A PROFESSORE! ---> la considererei una funzionalità avanzata, perchè richiede aggiunta di campi nel GeoJson che vanno in conflitto con altri usi;
-            6) andiamo a gonfiare l'area di 300 metri dal bordo richiesto dal frontend, ma lo facciamo direttamente dove vengono fatte le query a Overpass;
+            6) la query delle aree verdi è stata appositamente gonfiata oltre il poligono dell'utente;
 """
 
 # importazioni
 import geopandas as gpd
 import logging
+
+# costante --- in metri quadrati, 10000 m^2 = 1 ettaro
+SOGLIA_MINIMA = 10000
 
 def run_rule_300(edifici, aree_verdi):
 
@@ -50,6 +55,21 @@ def run_rule_300(edifici, aree_verdi):
             aree_verdi.set_crs("EPSG:4326", inplace=True)
         edifici_proj = edifici.to_crs("EPSG:32632")
         aree_verdi_proj = aree_verdi.to_crs("EPSG:32632")
+
+        # calcolo l'area (in metri quadri) di ogni poligono
+        aree_verdi_proj['area_mq'] = aree_verdi_proj.geometry.area
+        
+        # filtro per area
+        """
+            Attenzione: questa parte normalmente genererebbe un warning da parte di Pandas senza la copia esplicita (.copy()),
+            in quanto si sta tentando di modificare un DataFrame filtrato. L'uso di .copy() previene questo warning creando una copia indipendente.
+        """
+        aree_verdi_filtrate = aree_verdi_proj[aree_verdi_proj['area_mq'] >= SOGLIA_MINIMA].copy()
+
+        # ricontrollo caso dataset nullo
+        if aree_verdi_filtrate.empty:
+            logger.warning(f"Nessuna area verde significativa (>= {SOGLIA_MINIMA}mq) trovata. Restituisco score 0.")
+            return edifici.assign(score_300=0)
 
         """
             Creo un buffer di 300 metri intorno ad ogni edificio:
