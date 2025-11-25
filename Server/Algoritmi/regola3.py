@@ -236,13 +236,32 @@ def is_unobstructed(tree, building, all_buildings_gdf, obstacles_idx):
                 continue
 
             """
+            Controllo preliminare: se la linea di vista è più lunga del buffer massimo, salto. Per edifici molto grandi 
+            è possibile che alcuni alberi siano oltre il buffer di visuale per alcuni lati ma non per altri, nonostante
+            nel primo controllo risultino dentro il buffer (che parte estendendo ogni lato).
+            """
+            if line_of_sight.length > view_buffer: 
+                continue
+
+            """
             Primo controllo: gestione del lato opposto dell'edificio rispetto all'albero (Self-occlusion).
             La funzione di Shapely crosses() è true solo se la linea passa "attraverso" l'edificio.
             Questo identifica e scarta i lati opposti, ma dà False per i lati vicini (che "toccano" solo il bordo).
             Quindi, quando la linea attraversa l'edificio, significa che l'albero è sul lato opposto rispetto a quel lato,
             rendendo quella linea non valida per la visuale. Passiamo quindi al prossimo lato con continue.
+            Purtroppo, vista la natura non precisa e non omogenea dei dati, talvolta il centroide dei lati può essere
+            leggermente dentro la geometria dell'edificio stesso, creando errori di arrotondamento e falsi negativi.
+            Una linea di vista apparentemente valida potrebbe essere scartata perchè "attraversa" l'edificio, quando invece non è così.
+            Per risolvere questo problema, creiamo un punto leggermente "staccato" dal muro (0.1m) lungo la linea di vista,
+            e tracciamo una nuova linea di vista verso quel punto. Se questa nuova linea non attraversa l'edificio, allora la visuale è valida.
             """
-            if line_of_sight.crosses(building.geometry):
+            distanza_check = max(0, line_of_sight.length - 0.1) 
+            point_near_building = line_of_sight.interpolate(distanza_check)
+            
+            # Creiamo una linea di test che va dall'albero a questo punto "staccato" dal muro
+            line_check_self = LineString([tree_centroid, point_near_building])
+            
+            if line_check_self.crosses(building.geometry):
                 continue
 
             """
