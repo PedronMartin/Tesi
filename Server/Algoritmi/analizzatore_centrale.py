@@ -44,7 +44,7 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
     logger.info("--- Esecuzione Regola 3 (Linea di Vista) ---")
     try:
         risultati_3 = run_rule_3(edifici, alberi)
-        num_soddisfatti_3 = (risultati_3['visible_trees_count'] > 0).sum()
+        num_soddisfatti_3 = (risultati_3['visible_trees_count'] > 2).sum()
         logger.info(f"RISULTATO REGOLA 3: {num_soddisfatti_3} edifici soddisfano la regola (su {len(edifici)}).")
     except Exception as e:
         logger.error(f"Errore Regola 3: {e}")
@@ -75,6 +75,10 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
 
     #filtro per la regola 3
     edifici_conformi_3 = risultati_3[risultati_3['visible_trees_count'] > 2]
+
+    #TODO: elimina questa parte che serve solo per i test visivi sulla regola 3
+    #salvo in file a parte risultati regola 3
+    risultati_3.to_file("edifici_risultati_regola_3.geojson", driver='GeoJSON')
 
     #filtro per la regola 300
     edifici_conformi_300 = risultati_300[risultati_300['score_300'] == 1]

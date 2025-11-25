@@ -23,9 +23,16 @@ from shapely.geometry import LineString
 import pandas as pd
 import logging
 import geopandas as gpd
+import numpy as np
 
 #costante di buffer di visuale in metri
 view_buffer = 30
+
+#costante di debuffing per gli edifici attaccati o contigui
+DEBUFFER_METRI = -0.5
+
+#costante di angolo massimo per il filtro angolare della vista
+MAX_ANGLE_DEG = 45
 
 """
     Funzione che calcola il numero di alberi visibili da ogni edificio
@@ -121,7 +128,7 @@ def run_rule_3(edifici, alberi):
     #itero su ogni edificio
     for idx, edificio in risultato_edifici.iterrows():
 
-        #buffer di 50 metri attorno all'edificio
+        #buffer di 30 metri attorno all'edificio
         buffer = edificio.geometry.buffer(view_buffer)
         
         """
@@ -170,31 +177,113 @@ print(run_rule_3(edifici, alberi))"""
 """
 def is_unobstructed(tree, building, all_buildings_gdf, obstacles_idx):
 
-    #try necessario per gestire elementi senza geometria (es. alberi)
+    # trovo i punti target (i punti intermedi di ogni lato)
     try:
-        #troviamo il punto più vicino sul perimetro dell'edificio
-        building_point = building.geometry.exterior.interpolate(building.geometry.exterior.project(tree.geometry))
-        #creo la linea di vista tra il centroide dell'albero e quel punto
-        line_of_sight = LineString([tree.geometry.centroid, building_point])
-    except Exception as e:
+        target_points = []
+        
+        # estraggo le coordinate dei vertici dell'edificio
+        vertici = building.geometry.exterior.coords
+        
+        # prendo il centroide dell'albero (serve subito per il calcolo dell'angolo)
+        tree_centroid = tree.geometry.centroid
+
+        """
+        Itero su ogni lato del perimetro e compongo le linee che rappresentano i lati dell'edificio attraverso coppie di vertici.
+        range(len... - 1) si ferma prima dell'ultimo punto, che è uguale al primo.
+        """
+        for i in range(len(vertici) - 1):
+            p1 = vertici[i]
+            p2 = vertici[i+1]
+            
+            # creo una linea per questo lato e trova il suo centroide
+            lato = LineString([p1, p2])
+            midpoint = lato.centroid
+
+            # creo il vettore dal lato dell'edificio
+            wall_vector = np.array([p2[0] - p1[0], p2[1] - p1[1]])
+            # creo il vettore dalla linea di vista
+            view_vector = np.array([tree_centroid.x - midpoint.x, tree_centroid.y - midpoint.y])
+            
+            # normalizzo i vettori
+            norm_wall = np.linalg.norm(wall_vector)
+            norm_view = np.linalg.norm(view_vector)
+            
+            # evito divisioni per zero
+            if norm_wall == 0 or norm_view == 0: continue
+
+            # calcolo coseno e angolo
+            cos_angle = np.dot(wall_vector, view_vector) / (norm_wall * norm_view)
+            angle_deg = np.degrees(np.arccos(np.clip(cos_angle, -1.0, 1.0)))
+            
+            # accetto solo se l'angolo è "frontale" (tra 45° e 135°)
+            MIN_ANGLE = 90 - MAX_ANGLE_DEG
+            MAX_ANGLE = 90 + MAX_ANGLE_DEG
+            
+            if MIN_ANGLE <= angle_deg <= MAX_ANGLE:
+                target_points.append(midpoint)
+
+        # testo la linea di vista per ogni lato valido
+        for point in target_points:
+
+            """
+            L'uso del blocco try/except salta silenziosamente i punti per i quali la LineString
+            non può essere costruita (geometrie computazionalmente non calcolabili o coordinate non valide).
+            """
+            try:
+                # traccio una linea dall'albero al centro della facciata
+                line_of_sight = LineString([tree_centroid, point])
+            except Exception as e:
+                continue
+
+            """
+            Primo controllo: gestione del lato opposto dell'edificio rispetto all'albero (Self-occlusion).
+            La funzione di Shapely crosses() è true solo se la linea passa "attraverso" l'edificio.
+            Questo identifica e scarta i lati opposti, ma dà False per i lati vicini (che "toccano" solo il bordo).
+            Quindi, quando la linea attraversa l'edificio, significa che l'albero è sul lato opposto rispetto a quel lato,
+            rendendo quella linea non valida per la visuale. Passiamo quindi al prossimo lato con continue.
+            """
+            if line_of_sight.crosses(building.geometry):
+                continue
+
+            """
+            Secondo controllo: gestione degli altri possibili ostacoli nella linea di vista.
+            Uso l'indice per trovare quasi immediatamente i possibili ostacoli che intersecano la vista.
+            Questo riduce drasticamente il numero di ostacoli da controllare geometricamente con solo quelli la cui figura interseca con la linea.
+            Se siamo arrivati a questo punto, significa che la linea non attraversa l'edificio campione,
+            pertanto possiamo escluderlo dalla lista ostacoli e usare la funzione intersects() per il test finale.
+            """
+            possible_obstacle_idx = list(obstacles_idx.intersection(line_of_sight.bounds))
+            
+            # se non ci sono ostacoli possibili nell'indice, la vista è libera
+            if not possible_obstacle_idx:
+                return True
+
+            # altrimenti, prendi tutti i possibili ostacoli dall' indice (escluso l'edificio campione)
+            possible_obstacles = all_buildings_gdf.iloc[possible_obstacle_idx]
+            obstacles = possible_obstacles[possible_obstacles.index != building.name]
+            
+            # se non ci sono altri ostacoli, la vista è libera
+            if obstacles.empty:
+                return True
+
+            """
+            Terzo controllo: intersezione con DEBUFFER.
+            Applico un buffer negativo (-0.5m) agli ostacoli. Questo crea una micro-separazione
+            tra edifici adiacenti, permettendo alla linea di vista di passare se gli edifici sono solo "toccati".
+            Questo infatti generava bug o blocchi inesistenti nella visuale anche per lati che dovrebbero esssere liberi.
+            Il filtro angolare fatto all'inizio impedisce comunque che questo debuffer crei visuali irrealistiche attraverso i muri.
+            """
+            # creo copie temporanee ridotte degli ostacoli
+            debuffed_obstacles = obstacles.copy()
+            debuffed_obstacles.geometry = debuffed_obstacles.geometry.buffer(DEBUFFER_METRI)
+
+            # intersect ritorna true se c'è intersezione con gli ostacoli
+            if not debuffed_obstacles.geometry.intersects(line_of_sight).any():
+                return True
+
+        # se il ciclo finisce, nessuna linea è passata, dunque l'albero è ostruito.
         return False
-    
-    """
-    Uso l'indice per trovare i possibili ostacoli che intersecano la vista
-    questo riduce drasticamente il numero di ostacoli da controllare con
-    solo quelli la cui geometria interseca con la vista
-    """
-    possible_obstacle_idx = list(obstacles_idx.intersection(line_of_sight.bounds))
-    
-    #se non ci sono possibili ostacoli, la vista è libera e termino subito
-    if not possible_obstacle_idx:
-        return True
-
-    #altrimenti prelevo i GeoDataFrame di quegli ostacoli
-    possible_obstacles = all_buildings_gdf.iloc[possible_obstacle_idx]
-
-    #rimuovo l'edificio iterato dalla lista degli ostacoli
-    obstacles = possible_obstacles[possible_obstacles.index != building.name]
-    
-    #eseguo il test di intersezione (molto costoso) su questo piccolo sottoinsieme
-    return not obstacles.geometry.intersects(line_of_sight).any()
+        
+    except Exception as e:
+        # errore generico
+        return False
