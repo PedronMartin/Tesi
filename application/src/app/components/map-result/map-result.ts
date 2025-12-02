@@ -12,7 +12,6 @@ export class MapResult {
   //campi
   private L: any;
   private map: any;
-  private edifici: any;
   private alberi: any;
   private aree_verdi: any;
   private result: any;
@@ -20,7 +19,6 @@ export class MapResult {
   //layer della mappa
   private baseLayer: any;       //mappa base (OSM)
   private resultsLayer: any;    //edifici conformi a tutte le regole
-  private buildingsLayer: any;  //tutti gli edifici in input
   private treesLayer: any;      //tutti gli alberi in input
   private greenAreasLayer: any; //tutte le aree verdi in input
 
@@ -116,35 +114,6 @@ private loadData(){
       }).addTo(this.map);
     }
 
-    //layer edifici di input
-    if(this.edifici && this.edifici.features && this.edifici.features.length > 0)
-      this.buildingsLayer = this.L.geoJSON(this.edifici, {
-        style: styles.buildings,
-        onEachFeature: (feature: any, layer: any) => {
-          if(feature.properties) {
-            const props = feature.properties;
-            
-            // Creiamo un popup per tutti gli edifici (grigi)
-            // (Nota: questi edifici non hanno i 'risultati' perché
-            // sono stati filtrati da analizzatore_centrale)
-            // Per ora mostriamo solo le info base.
-            
-            let popupContent = `<b>Edificio (ID: ${props.id})</b><br>`;
-            if(props.name) popupContent += `Nome: ${props.name}<br>`;
-
-            // Se l'edificio ha il tag 'building', mostralo
-            if(props.building && props.building !== 'yes') {
-              popupContent += `Tipo: ${props.building}<br>`;
-            }
-
-            // TODO: In futuro, potremmo modificare analizzatore_centrale
-            // per restituire *tutti* gli edifici, con i loro punteggi parziali.
-            
-            layer.bindPopup(popupContent);
-          }
-        }
-      });
-
     //layer alberi di input
     if (this.alberi && this.alberi.features && this.alberi.features.length > 0){
 
@@ -184,7 +153,6 @@ private loadData(){
     */
     const overlayLayers = {
       ...(this.resultsLayer && {"Edifici Conformi": this.resultsLayer}),
-      ...(this.buildingsLayer && {"Tutti gli Edifici": this.buildingsLayer}),
       ...(this.treesLayer && {"Alberi": this.treesLayer}),
       ...(this.greenAreasLayer && {"Aree Verdi": this.greenAreasLayer})
     };
@@ -198,7 +166,6 @@ private loadData(){
 
   //funzione ausiliaria per estrapolare i dati
   private extractData(){
-    this.edifici = JSON.parse(this.dati['edifici']);
     this.alberi = JSON.parse(this.dati['alberi']);
     this.aree_verdi = JSON.parse(this.dati['aree_verdi']);
     this.result = JSON.parse(this.dati['risultati']);
@@ -207,7 +174,6 @@ private loadData(){
   //funzione ausiliaria per pulire i layer precedenti
   private clearLayer(){
     if(this.resultsLayer) this.map.removeLayer(this.resultsLayer);
-    if(this.buildingsLayer) this.map.removeLayer(this.buildingsLayer);
     if(this.treesLayer) this.map.removeLayer(this.treesLayer);
     if(this.greenAreasLayer) this.map.removeLayer(this.greenAreasLayer);
   }
@@ -218,10 +184,6 @@ private loadData(){
         //edifici conformi alle regole
         results: {
             color: "#00FF00", weight: 2, opacity: 1, fillOpacity: 0.3
-        },
-        //tutti gli edifici in input
-        buildings: {
-            color: "#0c0c0cff", weight: 1, opacity: 0.6, fillOpacity: 0.2
         },
         //tutti gli alberi in input
         trees: {

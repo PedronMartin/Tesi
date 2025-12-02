@@ -278,6 +278,20 @@ def greenRatingAlgorithm():
 
         except Exception as e:
             return jsonify({'errore': f'Errore nella conversione in GeoDataFrame dei dati OSM: {e}'}), 500
+        
+        # pulizia dati Edifici
+        try:
+            """
+            Manteniamo solo le colonne utili per l'analisi e scartiamo il resto per ridurre l'overhead di calcolo.
+            In questo modo evitiamo anche problemi di serializzazione in GeoJSON dovuti a tipi di dati non standard.
+            Filtriamo quindi solo le colonne che esistono effettivamente nel GDF (proiezione)
+            """
+            colonne_utili = ['geometry', 'id', 'building', 'name', 'addr:street', 'addr:housenumber', 'building:levels', 'amenity']
+            cols_to_keep = [c for c in colonne_utili if c in edifici.columns]
+            edifici = edifici[cols_to_keep].copy()
+
+        except Exception as e:
+            return jsonify({'errore': f'Errore nella pulizia dei dati degli edifici: {e}'}), 500
 
         # esecuzione degli algoritmi
         result = run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf)
@@ -302,7 +316,6 @@ def greenRatingAlgorithm():
 
         risultato = {
             'messaggio': 'Analisi completata con successo.',
-            'edifici': edifici_geojson,
             'alberi': alberi_geojson,
             'aree_verdi': aree_verdi_geojson,
             'risultati': risultati_geojson
