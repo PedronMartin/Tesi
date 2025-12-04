@@ -99,15 +99,53 @@ private loadData(){
     //creo i layer di output (il primo a caricare)
     if(this.result && this.result.features && this.result.features.length > 0) {
       this.resultsLayer = this.L.geoJSON(this.result, {
-        style: styles.results,
+        //stile dinamico in base al valore di is_conforme (1 verde, 0 rosso)
+        style: (feature: any) => {
+          if(feature.properties && feature.properties.is_conforme == 1)
+            return styles.conformi;
+          else
+            return styles.nonConformi;
+        },
+        //popup informativo per ogni edificio
         onEachFeature: (feature: any, layer: any) => {
-          if(feature.properties){
+          if(feature.properties) {
             const props = feature.properties;
             let popupContent = `<b>Edificio ID: ${props.id}</b><br>`;
-            if(props.name) popupContent += `Nome: ${props.name}<br>`;
-            popupContent += `Alberi visibili: ${props.visible_trees_count}<br>`;
-            popupContent += `Score 300m: ${props.score_300 === 1 ? 'Sì' : 'No'}<br>`;
-            popupContent += `Copertura Zona: ${props.coverage_percentage.toFixed(2)}%`;
+
+            //dati edificio di OSM
+            if (props.name) 
+                popupContent += `<b>Nome:</b> ${props.name}<br>`;
+            
+            if (props.building && props.building !== 'yes') 
+                popupContent += `<b>Tipo:</b> ${props.building}<br>`;
+            
+            //via e num. civico se presenti
+            if (props['addr:street']) {
+                popupContent += `<b>Indirizzo:</b> ${props['addr:street']}`;
+                if (props['addr:housenumber']) popupContent += `, ${props['addr:housenumber']}`;
+                popupContent += `<br>`;
+            }
+
+            if (props['building:levels']) 
+                popupContent += `<b>Piani:</b> ${props['building:levels']}<br>`;
+            
+            if (props.amenity) 
+                popupContent += `<b>Funzione:</b> ${props.amenity}<br>`;
+
+            //separatore per evidenziare i dati di valutazione dell'algoritmo
+            popupContent += `<hr style="margin: 5px 0; border-top: 1px solid #ccc;">`;
+
+            //punteggi GreenRatingAlgorithm
+            
+            const colorTrees = props.visible_trees_count >= 3 ? 'green' : '#d9534f';
+            popupContent += `Alberi visibili: <b style="color:${colorTrees}">${props.visible_trees_count}</b><br>`;
+
+            const colorPark = props.score_300 === 1 ? 'green' : '#d9534f';
+            popupContent += `Accesso Parco (300m): <b style="color:${colorPark}">${props.score_300 === 1 ? 'Sì' : 'No'}</b><br>`;
+
+            const colorCover = props.coverage_percentage >= 30.0 ? 'green' : '#d9534f';
+            popupContent += `Copertura Zona: <b style="color:${colorCover}">${props.coverage_percentage.toFixed(2)}%</b>`;
+
             layer.bindPopup(popupContent);
           }
         }
@@ -182,8 +220,11 @@ private loadData(){
   private colorLayers(){
     return {
         //edifici conformi alle regole
-        results: {
+        conformi: {
             color: "#00FF00", weight: 2, opacity: 1, fillOpacity: 0.3
+        },
+        nonConformi: {
+            color: "#FF0000", weight: 2, opacity: 1, fillOpacity: 0.3
         },
         //tutti gli alberi in input
         trees: {
