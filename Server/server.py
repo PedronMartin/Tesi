@@ -294,28 +294,36 @@ def greenRatingAlgorithm():
             return jsonify({'errore': f'Errore nella pulizia dei dati degli edifici: {e}'}), 500
 
         # esecuzione degli algoritmi
-        result = run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf)
+        result, errori = run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf)
 
         # definiamo un GeoJSON vuoto standard da usare come fallback
         empty_geojson_fallback = '{"type": "FeatureCollection", "features": []}'
 
         # preparazione della risposta in formato GeoJSON (con gestione accurata dei casi particolari)
-        edifici_geojson = edifici.to_json() if not edifici.empty else empty_geojson_fallback
         alberi_geojson = alberi.to_json() if not alberi.empty else empty_geojson_fallback
         aree_verdi_geojson = aree_verdi.to_json() if not aree_verdi.empty else empty_geojson_fallback
 
         if result is None or result.empty:
              risultati_geojson = '{"type": "FeatureCollection", "features": []}'
         elif not hasattr(result, 'to_json'):
-             # Se non è GeoDataFrame, converti a stringa di errore (improbabile, ma sicuro)
+             # se non è GDF, converti a stringa di errore (improbabile, ma sicuro)
              app.logger.error("Il risultato non è un oggetto serializzabile!")
              risultati_geojson = '{"type": "FeatureCollection", "features": []}'
         else:
-             # Serializzazione del GeoDataFrame (Se fallisce qui, il problema è nel GDF stesso)
+             # serializzazione del GDF (Se fallisce qui, il problema è nel GDF stesso)
              risultati_geojson = result.to_json()
 
+        #costruzione del messaggio in base alla presenza di errori non bloccanti
+        if errori:
+            flag = False
+            messaggio = "Analisi completata con errori non bloccanti delle seguenti regole: " + "; ".join(errori)
+        else:
+            flag = True
+            messaggio = "Analisi completata con successo."
+
         risultato = {
-            'messaggio': 'Analisi completata con successo.',
+            'EsecuzionePositiva': flag,
+            'messaggio': messaggio,
             'alberi': alberi_geojson,
             'aree_verdi': aree_verdi_geojson,
             'risultati': risultati_geojson

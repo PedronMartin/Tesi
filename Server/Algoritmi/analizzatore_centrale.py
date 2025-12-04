@@ -25,13 +25,19 @@ from .regola3 import run_rule_3
 from .regola30 import run_rule_30
 from .regola300 import run_rule_300
 
-# nomi dei file di input e output
-output_filename = "edifici_conformi_3_30_300.geojson"
+# costanti conformità algoritmo
+VISIBLE_TREES = 3
+COVERAGE_PERCENTAGE = 30.0
+MIN_DISTANCE_GREEN_AREA = 300
 
 """
     Funzione principale che esegue l'analisi completa 3-30-300.
 """
 def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
+
+    # file di debug output e errori non bloccanti da ritornare al main + inizializzazione logger
+    output_filename = "edifici_conformi_3_30_300.geojson"
+    errori_rilevati = []
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("analizzatore_centrale")
     logger.info("Avvio dell'analisi completa 3-30-300...")
@@ -44,74 +50,71 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
     logger.info("--- Esecuzione Regola 3 (Linea di Vista) ---")
     try:
         risultati_3 = run_rule_3(edifici, alberi)
-        num_soddisfatti_3 = (risultati_3['visible_trees_count'] > 2).sum()
+        num_soddisfatti_3 = (risultati_3['visible_trees_count'] >= VISIBLE_TREES).sum()
         logger.info(f"RISULTATO REGOLA 3: {num_soddisfatti_3} edifici soddisfano la regola (su {len(edifici)}).")
     except Exception as e:
-        logger.error(f"Errore Regola 3: {e}")
-        return
+        logger.error(f"Errore Regola 3: {e}. Procedo con valori di default.")
+        risultati_3 = edifici.copy()
+        risultati_3['visible_trees_count'] = 0
+        errori_rilevati.append("Regola 3 fallita")
 
     logger.info("--- Esecuzione Regola 30 (Copertura Arborea) ---")
     try:
         percentage_30 = run_rule_30(edifici, alberi, polygon_gdf)
         logger.info(f"RISULTATO REGOLA 30: La copertura arborea è del {percentage_30:.2f}%.")
-        if percentage_30 > 0.0:
+        if percentage_30 > COVERAGE_PERCENTAGE:
             logger.info("La regola del 30% è soddisfatta a livello di zona.")
         else:
             logger.info("La regola del 30% NON è soddisfatta a livello di zona.")
     except Exception as e:
         logger.error(f"Errore Regola 30: {e}")
-        return
+        errori_rilevati.append("Regola 30 fallita")
+        percentage_30 = 0.0
 
     logger.info("--- Esecuzione Regola 300 (Area Verde Vicina) ---")
     try:
         risultati_300 = run_rule_300(edifici, aree_verdi)
-        num_soddisfatti_300 = (risultati_300['score_300'] == 1).sum()
+        num_soddisfatti_300 = (risultati_300['score_300'] >= 1).sum()
         logger.info(f"RISULTATO REGOLA 300: {num_soddisfatti_300} edifici soddisfano la regola (su {len(edifici)}).")
     except Exception as e:
         logger.error(f"Errore Regola 300: {e}")
-        return
+        errori_rilevati.append("Regola 300 fallita")
+        risultati_300 = edifici.copy()
+        risultati_300['score_300'] = 0
 
-    logger.info("Intersezione dei risultati...")
+    logger.info("Merge dei risultati...")
 
-    #filtro per la regola 3
-    edifici_conformi_3 = risultati_3[risultati_3['visible_trees_count'] > 2]
+    #partiamo dal GDF originale
+    edifici_finali = edifici.copy()
 
-    #TODO: elimina questa parte che serve solo per i test visivi sulla regola 3
-    #salvo in file a parte risultati regola 3
-    risultati_3.to_file("edifici_risultati_regola_3.geojson", driver='GeoJSON')
+    #uniamo i risultati della Regola 3 (visible_trees_count) alla tabella edifici_finali
+    #gestiamo anche il caso di ritorno fallback della regola (tutti i risultati a 0)
+    if 'visible_trees_count' in risultati_3.columns:
+        edifici_finali = edifici_finali.join(risultati_3[['visible_trees_count']])
+    else:
+        edifici_finali['visible_trees_count'] = 0
 
-    #filtro per la regola 300
-    edifici_conformi_300 = risultati_300[risultati_300['score_300'] == 1]
+    #uniamo i risultati della Regola 300 (score_300) con gestione del fallback
+    if 'score_300' in risultati_300.columns:
+        edifici_finali = edifici_finali.join(risultati_300[['score_300']])
+    else:
+        edifici_finali['score_300'] = 0
     
-    #intersezione dei GeoDataFrame
-    edifici_intermedi = edifici_conformi_3.loc[edifici_conformi_3.index.intersection(edifici_conformi_300.index)].copy()
+    #uniamo il valore della regola 30 (coverage_percentage) che è uguale per tutti
+    edifici_finali['coverage_percentage'] = percentage_30
 
-    logger.info(f"Edifici che soddisfano sia la Regola 3 che la Regola 300: {len(edifici_intermedi)}")
+    #calcolo la conformità finale salvando una flag
+    edifici_finali['is_conforme'] = (
+        (edifici_finali['visible_trees_count'] >= VISIBLE_TREES) &
+        (edifici_finali['score_300'] >= 1) &
+        (edifici_finali['coverage_percentage'] >= COVERAGE_PERCENTAGE)
+    ).astype(int)
 
-    #controllo della regola 30
-    if percentage_30 > 0.0:
-        logger.info("La regola 30 è soddisfatta, procedo con il salvataggio.")
-        edifici_finali = edifici_intermedi.copy()
-    else:
-        logger.info("La regola 30 NON è soddisfatta, il risultato finale è 0.")
-        #crea un GeoDataFrame vuoto in modo corretto (con le colonne di edifici per avere uno standard)
-        edifici_finali = edifici.iloc[0:0].copy()
+    #log finale del numero di edifici conformi
+    num_conformi = edifici_finali['is_conforme'].sum()
+    logger.info(f"Analisi completata. Edifici conformi: {num_conformi} su {len(edifici_finali)}")
 
-    #aggiungo le colonne di debug per l'output finale
-    if not edifici_finali.empty:
-        edifici_finali['visible_trees_count'] = risultati_3.loc[edifici_finali.index, 'visible_trees_count']
-        edifici_finali['score_300'] = risultati_300.loc[edifici_finali.index, 'score_300']
-        edifici_finali['coverage_percentage'] = percentage_30
-
-    #salva il risultato finale
-    if not edifici_finali.empty:
-        logger.info(f"Analisi completata! Trovati {len(edifici_finali)} edifici che rispettano la regola 3-30-300.")
-        logger.info(f"Risultato salvato in: {output_filename}")
-        return edifici_finali.to_crs(edifici.crs)
-        #.to_file(output_filename, driver='GeoJSON')
-    else:
-        logger.info("Nessun edificio trovato che rispetta tutte e 3 le regole.")
-        return edifici.iloc[0:0].copy()
+    return edifici_finali.to_crs(edifici.crs), errori_rilevati
 
 #main rule
 if __name__ == "__main__":
