@@ -17,10 +17,11 @@ export class MapResult {
   private result: any;
 
   //layer della mappa
-  private baseLayer: any;       //mappa base (OSM)
-  private resultsLayer: any;    //edifici conformi a tutte le regole
-  private treesLayer: any;      //tutti gli alberi in input
-  private greenAreasLayer: any; //tutte le aree verdi in input
+  private baseLayer: any;             //mappa base (OSM)
+  private resultsLayer: any;          //edifici conformi a tutte le regole
+  private treesLayer: any;            //tutti gli alberi in input
+  private greenAreasLayer: any;       //tutte le aree verdi in input
+  private lightedLayers: any;         //layer attivi sulla mappa
 
   //input ricevuti
   @Input() dati: any;
@@ -63,6 +64,9 @@ export class MapResult {
 
         //inizializzo la mappa sul div
         this.map = L.map('map');
+
+        //inizializzo subito il layer di evidenziazione che starà sopra a tutto (inizialmente vuoto)
+        this.lightedLayers = L.layerGroup().addTo(this.map);
 
         //aggiungo sfondo OSM alla mappa
         this.baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -148,6 +152,66 @@ private loadData(){
 
             layer.bindPopup(popupContent);
           }
+
+          //gestione della selezione di un edificio da parte dell'utente
+          layer.on('click', () => {
+
+            //centro l'edificio selezionato
+            const bounds = layer.getBounds();
+            this.map.fitBounds(bounds, {
+                padding: [100, 100],
+                maxZoom: 19,
+                animate: true,
+                duration: 0.8
+            });
+
+            //nascondo gli altri edifici del layer
+            if(this.resultsLayer)
+                this.resultsLayer.eachLayer((l: any) => {
+                    if(l !== layer)
+                        l.setStyle({ opacity: 0, fillOpacity: 0, interactive: false }); 
+                });
+            
+            //spengo le selezioni precedenti (se ce ne sono)
+            if(this.lightedLayers)
+                this.lightedLayers.clearLayers();
+
+            //recupero i dati dell'edificio selezionato (id aree verdi e alberi)
+            const greenAreaIdList = feature.properties.green_areas_id;
+
+            //se non ci sono elementi collegati o se il layer aree verdi non esiste, mi fermo
+            //TODO: aggiungere anche per alberi
+            if (!greenAreaIdList || greenAreaIdList.length == 0 || !this.greenAreasLayer) return;
+
+            //itero su tutte le aree verdi caricate
+            this.greenAreasLayer.eachLayer((greenLayer: any) => {
+                const greenProps = greenLayer.feature.properties;
+                
+                //match id area verde con id collegati all'edificio selezionato
+                if(greenProps && greenAreaIdList.includes(greenProps.id)) {
+                    //creo un clone json usando la geometria originale e lo stile evidenziato
+                    //in questo modo non si necessitano altri layer selezionati dall'utente per vedere evidenziati gli elementi collegati ad un edificio scelto
+                    const clone = this.L.geoJSON(greenLayer.feature, {
+                        style: styles.highlight
+                    });
+                    clone.addTo(this.lightedLayers);
+                }
+            });
+
+            //quando viene chiuso il popup, ripristino la mappa
+            layer.on('popupclose', () => {
+              
+              //visibilità edifici
+              if (this.resultsLayer)
+                  this.resultsLayer.eachLayer((l: any) => {
+                      this.resultsLayer.resetStyle(l);
+                  });
+
+              //visibilità layer evidenziati
+              if (this.lightedLayers)
+                  this.lightedLayers.clearLayers();
+            });
+          });
         }
       }).addTo(this.map);
     }
@@ -228,11 +292,14 @@ private loadData(){
         },
         //tutti gli alberi in input
         trees: {
-            color: "#dfdb0aff", weight: 1, opacity: 0.8, fillOpacity: 0.4
+            color: "#0c0c0bff", weight: 1, opacity: 0.8, fillOpacity: 0.3
         },
         //tutte le aree verdi in input
         greenAreas: {
             color: "#286d0cff", weight: 1, opacity: 0.7, fillOpacity: 0.3
+        },
+        highlight: {
+            color: "#FFFF00", weight: 4, opacity: 1, fillOpacity: 0.7
         }
     };
   }

@@ -9,6 +9,9 @@ from Algoritmi.analizzatore_centrale import run_full_analysis
 import logging
 from shapely.geometry import Polygon
 
+# costante --- in metri quadrati, 10000 m^2 = 1 ettaro
+SOGLIA_MINIMA = 10000
+
 
 
 #####################################################################################
@@ -284,14 +287,36 @@ def greenRatingAlgorithm():
             """
             Manteniamo solo le colonne utili per l'analisi e scartiamo il resto per ridurre l'overhead di calcolo.
             In questo modo evitiamo anche problemi di serializzazione in GeoJSON dovuti a tipi di dati non standard.
-            Filtriamo quindi solo le colonne che esistono effettivamente nel GDF (proiezione)
+            Filtriamo quindi solo le colonne che esistono effettivamente nel GDF (proiezione) e che verranno visualizzate nel frontend.
+            OSM usa '@id', ma noi vogliamo lavorare pulito con 'id' (utile anche per il frontend), quindi rinominiamo per tutti i GDF.
             """
+            if '@id' in edifici.columns:
+                edifici = edifici.rename(columns={'@id': 'id'})
             colonne_utili = ['geometry', 'id', 'building', 'name', 'addr:street', 'addr:housenumber', 'building:levels', 'amenity']
             cols_to_keep = [c for c in colonne_utili if c in edifici.columns]
             edifici = edifici[cols_to_keep].copy()
 
+            if '@id' in alberi.columns:
+                alberi = alberi.rename(columns={'@id': 'id'})
+                
+            if '@id' in aree_verdi.columns:
+                aree_verdi = aree_verdi.rename(columns={'@id': 'id'})
+
+            """
+            Proiettiamo le aree verdi nel sistema metrico e scartiamo quelle troppo piccole ai fini del calcolo.
+            Inizialmente questa operazione era fatta all'interno della regola 300, ma spostandola qui evitiamo di passare dati inutili alla regola,
+            riducendo il carico computazionale.
+            Inoltre, eseguendo qui questa parte, evitiamo di mandare al frontend aree verdi che non sono state usate dal calcolo.
+            Attenzione: questa parte normalmente genererebbe un warning da parte di Pandas senza la copia esplicita (.copy()),
+            in quanto si sta tentando di modificare un DataFrame filtrato. L'uso di .copy() previene questo warning creando una copia indipendente.
+            """
+            if not aree_verdi.empty:
+                aree_verdi_metriche = aree_verdi.to_crs("EPSG:32632")
+                mask_grandi = aree_verdi_metriche.geometry.area >= SOGLIA_MINIMA
+                aree_verdi = aree_verdi[mask_grandi].copy()
+
         except Exception as e:
-            return jsonify({'errore': f'Errore nella pulizia dei dati degli edifici: {e}'}), 500
+            return jsonify({'errore': f'Errore nella pulizia dei dati: {e}'}), 500
 
         # esecuzione degli algoritmi
         result, errori = run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf)

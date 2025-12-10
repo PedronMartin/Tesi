@@ -32,20 +32,17 @@
 import geopandas as gpd
 import logging
 
-# costante --- in metri quadrati, 10000 m^2 = 1 ettaro
-SOGLIA_MINIMA = 10000
-
 def run_rule_300(edifici, aree_verdi):
 
     # avvio logger regola
     logger = logging.getLogger("regola300")
 
-    #TODO: controllare che questo controllo non sia ridondante con quello in server.py
-    # potrebbe avere senso tenerlo in particolare se si rendono le regole autonome e utilizzabili singolarmente
-    # controllo input
+    # controllo input (in caso di errore, restituisco edifici con score 0 e lista vuota)
     if edifici.empty or aree_verdi.empty:
         logger.warning("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
-        return edifici.assign(score_300=0)
+        edifici = edifici.assign(score_300=0)
+        edifici['green_areas_id'] = [[] for _ in range(len(edifici))]
+        return edifici
 
     # proietto i CRS in EPSG:32632 per calcoli metrici
     try:
@@ -55,21 +52,6 @@ def run_rule_300(edifici, aree_verdi):
             aree_verdi.set_crs("EPSG:4326", inplace=True)
         edifici_proj = edifici.to_crs("EPSG:32632")
         aree_verdi_proj = aree_verdi.to_crs("EPSG:32632")
-
-        # calcolo l'area (in metri quadri) di ogni poligono
-        aree_verdi_proj['area_mq'] = aree_verdi_proj.geometry.area
-        
-        # filtro per area
-        """
-            Attenzione: questa parte normalmente genererebbe un warning da parte di Pandas senza la copia esplicita (.copy()),
-            in quanto si sta tentando di modificare un DataFrame filtrato. L'uso di .copy() previene questo warning creando una copia indipendente.
-        """
-        aree_verdi_filtrate = aree_verdi_proj[aree_verdi_proj['area_mq'] >= SOGLIA_MINIMA].copy()
-
-        # ricontrollo caso dataset nullo
-        if aree_verdi_filtrate.empty:
-            logger.warning(f"Nessuna area verde significativa (>= {SOGLIA_MINIMA}mq) trovata. Restituisco score 0.")
-            return edifici.assign(score_300=0)
 
         """
             Creo un buffer di 300 metri intorno ad ogni edificio:
@@ -82,19 +64,42 @@ def run_rule_300(edifici, aree_verdi):
         edifici_buffer['original_index'] = edifici_buffer.index
 
         # unione spaziale tra i buffer degli edifici e le aree verdi (inner è join base, predicate 'intersects' controlla l'intersezione)
-        join_result = gpd.sjoin(edifici_buffer, aree_verdi_filtrate, how="inner", predicate='intersects')
+        join_result = gpd.sjoin(edifici_buffer, aree_verdi_proj, how="inner", predicate='intersects')
 
-        # crea copia per il risultato finale e inizializza colonna punteggio a 0
+        # crea copia per il risultato finale, inizializzo colonna punteggio a 0 e inizializzo la colonna degli ID come liste vuote
         risultato_finale = edifici.copy()
         risultato_finale['score_300'] = 0
+        risultato_finale['green_areas_id'] = [[] for _ in range(len(risultato_finale))]
 
         # se ci sono intersezioni, si assegna loro il punteggio senza ripetere gli indici originali
         if not join_result.empty:
+
+            #flag SI/NO all'intersezione
             soddisfatti_index = join_result['original_index'].unique()
             risultato_finale.loc[soddisfatti_index, 'score_300'] = 1
+
+            """
+            Eseguo un'aggregazione degli ID. Raggruppo per edificio (original_index) e metto gli ID delle aree verdi ('id') in una lista.
+            NB: 'id_right' è il nome standard che sjoin dà all'indice/id del secondo dataframe se c'è conflitto (dato che è convensione OSM usare @id
+            per cui sia edifici che aree verdi avrebbero lo stesso tipo di id, e sjoin le rinominerebbe).
+            Nel primo if, gestiamo il caso in cui ci sia conflitto e l'id delle aree verdi sia rimasto semplicemente '@id' dopo il cambio del server.
+            """            
+            colonna_target = 'id_right'
+            
+            #per ogni edificio, creo lista degli id trovati
+            if colonna_target in join_result.columns:
+                temp = join_result.groupby('original_index')[colonna_target].apply(list)
+                #assegno liste con gli id alla colonna del dataframe finale (.loc permette di assegnare solo agli indici con score_300=1)
+                risultato_finale.loc[temp.index, 'green_areas_id'] = temp
+            else:
+                #TODO: rimuovere questo else quando si sarà sicuri che non ci siano conflitti di id
+                logger.error(f"Colonna {colonna_target} non trovata. Colonne presenti: {join_result.columns.tolist()}")
+
     except Exception as e:
         logger.error(f"Errore nel calcolo della regola 300: {e}")
-        return edifici.assign(score_300=0)
+        edifici = edifici.assign(score_300=0)
+        edifici['green_areas_id'] = [[] for _ in range(len(edifici))]
+        return edifici
 
     return risultato_finale
 

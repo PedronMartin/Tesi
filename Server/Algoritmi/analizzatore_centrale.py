@@ -94,11 +94,15 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
     else:
         edifici_finali['visible_trees_count'] = 0
 
-    #uniamo i risultati della Regola 300 (score_300) con gestione del fallback
+    #uniamo i risultati della Regola 300 (score_300 e lista id aree verdi) con gestione del fallback con score 0 e liste vuote
     if 'score_300' in risultati_300.columns:
-        edifici_finali = edifici_finali.join(risultati_300[['score_300']])
+        colonne_da_unire = ['score_300']
+        if 'green_areas_id' in risultati_300.columns:
+            colonne_da_unire.append('green_areas_id')
+        edifici_finali = edifici_finali.join(risultati_300[colonne_da_unire])
     else:
         edifici_finali['score_300'] = 0
+        edifici_finali['green_areas_id'] = [[] for _ in range(len(edifici_finali))]
     
     #uniamo il valore della regola 30 (coverage_percentage) che è uguale per tutti
     edifici_finali['coverage_percentage'] = percentage_30
