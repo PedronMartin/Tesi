@@ -178,39 +178,77 @@ private loadData(){
 
             //recupero i dati dell'edificio selezionato (id aree verdi e alberi)
             const greenAreaIdList = feature.properties.green_areas_id;
+            const treesIdList = feature.properties.visible_trees_id;
 
-            //se non ci sono elementi collegati o se il layer aree verdi non esiste, mi fermo
-            //TODO: aggiungere anche per alberi
-            if (!greenAreaIdList || greenAreaIdList.length == 0 || !this.greenAreasLayer) return;
+            //se non ci sono elementi collegati o se il layer aree verdi non esiste, mi fermo per le aree verdi
+            if(greenAreaIdList && greenAreaIdList.length > 0 && this.greenAreasLayer){
 
-            //itero su tutte le aree verdi caricate
-            this.greenAreasLayer.eachLayer((greenLayer: any) => {
-                const greenProps = greenLayer.feature.properties;
-                
-                //match id area verde con id collegati all'edificio selezionato
-                if(greenProps && greenAreaIdList.includes(greenProps.id)) {
-                    //creo un clone json usando la geometria originale e lo stile evidenziato
-                    //in questo modo non si necessitano altri layer selezionati dall'utente per vedere evidenziati gli elementi collegati ad un edificio scelto
-                    const clone = this.L.geoJSON(greenLayer.feature, {
-                        style: styles.highlight
-                    });
-                    clone.addTo(this.lightedLayers);
-                }
-            });
+              //converto in stringhe per evitare problemi di confronto tra tipi diversi
+              const greenAreaListString = greenAreaIdList.map((id: any) => String(id));
 
-            //quando viene chiuso il popup, ripristino la mappa
-            layer.on('popupclose', () => {
-              
-              //visibilità edifici
-              if (this.resultsLayer)
-                  this.resultsLayer.eachLayer((l: any) => {
-                      this.resultsLayer.resetStyle(l);
-                  });
+              //itero su tutte le aree verdi caricate
+              this.greenAreasLayer.eachLayer((greenLayer: any) => {
+                  const greenProps = greenLayer.feature.properties;
+                  
+                  //match id area verde con id collegati all'edificio selezionato
+                  if(greenProps && greenAreaListString.includes(String(greenProps.id))) {
+                      //creo un clone json usando la geometria originale e lo stile evidenziato
+                      //in questo modo non si necessitano altri layer selezionati dall'utente per vedere evidenziati gli elementi collegati ad un edificio scelto
+                      const clone = this.L.geoJSON(greenLayer.feature, {
+                          style: styles.highlight
+                      });
+                      clone.addTo(this.lightedLayers);
+                  }
+              });
+            }
 
-              //visibilità layer evidenziati
-              if (this.lightedLayers)
-                  this.lightedLayers.clearLayers();
-            });
+            //se non ci sono elementi collegati o se il layer alberi non esiste, mi fermo per gli alberi
+            if(treesIdList && treesIdList.length > 0 && this.treesLayer){
+
+              //conversione in stringhe per evitare problemi di confronto tra tipi diversi
+              const treeListString = treesIdList.map((id: any) => String(id));
+
+              //itero su tutti gli alberi caricati
+              this.treesLayer.eachLayer((treeLayer: any) => {
+                  const treeProps = treeLayer.feature.properties;
+                  if(treeProps && treeListString.includes(String(treeProps.id))) {
+                      
+                      //controllo se è un punto o Poligono (albero o bosco)
+                      if(treeLayer.getLatLng){
+                        const latlng = treeLayer.getLatLng();
+                        const highlightCircle = this.L.circleMarker(latlng, {
+                            radius: 8,
+                            color: "#FFFF00",
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.8,
+                            fillColor: "#FFFF00"
+                          });
+                        highlightCircle.addTo(this.lightedLayers);
+                      }
+                      else{
+                        const clone = this.L.geoJSON(treeLayer.feature, {
+                          style: styles.highlight
+                        });
+                        clone.addTo(this.lightedLayers);
+                      }
+                  }
+              });
+            }
+          });
+
+          //quando viene chiuso il popup, ripristino la mappa
+          layer.on('popupclose', () => {
+            
+            //visibilità edifici
+            if (this.resultsLayer)
+                this.resultsLayer.eachLayer((l: any) => {
+                    this.resultsLayer.resetStyle(l);
+                });
+
+            //visibilità layer evidenziati
+            if (this.lightedLayers)
+                this.lightedLayers.clearLayers();
           });
         }
       }).addTo(this.map);

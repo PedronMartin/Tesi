@@ -17,7 +17,6 @@
 
 #importazioni
 import geopandas as gpd
-from osm2geojson import json2geojson
 import logging
 
 #importa le funzioni dagli script singoli
@@ -36,7 +35,6 @@ MIN_DISTANCE_GREEN_AREA = 300
 def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
 
     # file di debug output e errori non bloccanti da ritornare al main + inizializzazione logger
-    output_filename = "edifici_conformi_3_30_300.geojson"
     errori_rilevati = []
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("analizzatore_centrale")
@@ -56,6 +54,7 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
         logger.error(f"Errore Regola 3: {e}. Procedo con valori di default.")
         risultati_3 = edifici.copy()
         risultati_3['visible_trees_count'] = 0
+        risultati_3['visible_trees_id'] = [[] for _ in range(len(risultati_3))]
         errori_rilevati.append("Regola 3 fallita")
 
     logger.info("--- Esecuzione Regola 30 (Copertura Arborea) ---")
@@ -89,10 +88,11 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
 
     #uniamo i risultati della Regola 3 (visible_trees_count) alla tabella edifici_finali
     #gestiamo anche il caso di ritorno fallback della regola (tutti i risultati a 0)
-    if 'visible_trees_count' in risultati_3.columns:
-        edifici_finali = edifici_finali.join(risultati_3[['visible_trees_count']])
+    if 'visible_trees_count' in risultati_3.columns and 'visible_trees_id' in risultati_3.columns:
+        edifici_finali = edifici_finali.join(risultati_3[['visible_trees_count', 'visible_trees_id']])
     else:
         edifici_finali['visible_trees_count'] = 0
+        edifici_finali['visible_trees_id'] = [[] for _ in range(len(edifici_finali))]
 
     #uniamo i risultati della Regola 300 (score_300 e lista id aree verdi) con gestione del fallback con score 0 e liste vuote
     if 'score_300' in risultati_300.columns:

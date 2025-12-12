@@ -18,11 +18,13 @@
                 un *logx in più in questo algoritmo.
 """
 
-#importazioni
+########################################################################################################################
+# TODO: capire se re-integrare boschi e foreste oppure passare ad alberi di Enrico che già gli includono e sono più precisi.
+# in questo momento sono commentati per ridurre i falsi positivi; sono facilmente reintegrabili.
+########################################################################################################################
 from shapely.geometry import LineString
 import pandas as pd
 import logging
-import geopandas as gpd
 import numpy as np
 
 #costante di buffer di visuale in metri
@@ -32,7 +34,7 @@ view_buffer = 30
 DEBUFFER_METRI = -0.5
 
 #costante di angolo massimo per il filtro angolare della vista
-MAX_ANGLE_DEG = 45
+MAX_ANGLE_DEG = 60
 
 """
     Funzione che calcola il numero di alberi visibili da ogni edificio
@@ -45,7 +47,9 @@ def run_rule_3(edifici, alberi):
     #controllo input
     if edifici.empty or alberi.empty:
         logger.warning("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
-        return edifici.assign(visible_trees_count=0)
+        edifici['visible_trees_count'] = 0
+        edifici['visible_trees_id'] = [[] for _ in range(len(edifici))]
+        return edifici
 
     #blocco di correzzione e validazione input
     try:
@@ -66,32 +70,33 @@ def run_rule_3(edifici, alberi):
 
         #definisco i tag che consideriamo "copertura arborea"
         tree_tags = ['tree', 'tree_row']
-        forest_tags = ['forest', 'wood']
+        #forest_tags = ['forest', 'wood']
 
         #creo delle maschere "vuote" (tutto Falso) come base, tenendo traccia dell'indice originale
         mask_natural = pd.Series([False] * len(alberi_proj), index=alberi_proj.index)
-        mask_landuse = pd.Series([False] * len(alberi_proj), index=alberi_proj.index)
+        #mask_landuse = pd.Series([False] * len(alberi_proj), index=alberi_proj.index)
         
         #se la colonna 'natural' esiste, calcolo la sua maschera
         if 'natural' in alberi_proj.columns:
             #pulizia e formattazione: evita NaN, forza conversione in stringa, rimuove spazi e rende minuscolo tutto
             natural_col = alberi_proj['natural'].fillna('').astype(str).str.lower().str.strip()
             mask_natural = (
-                natural_col.isin(tree_tags) |
-                natural_col.isin(forest_tags)
+                natural_col.isin(tree_tags)
+                #| natural_col.isin(forest_tags)
             )
 
-        #se la colonna 'landuse' esiste, calcolo la sua maschera
+        """se la colonna 'landuse' esiste, calcolo la sua maschera
         if 'landuse' in alberi_proj.columns:
             #pulizia e formattazione: evita NaN, forza conversione in stringa, rimuove spazi e rende minuscolo tutto
             landuse_col = alberi_proj['landuse'].fillna('').astype(str).str.lower().str.strip()
             mask_landuse = landuse_col.isin(forest_tags)
+        """
 
         """
         La maschera finale è l'unione (OR) delle due maschere
         Se una colonna non esiste, la sua maschera è rimasta "False" e non contribuisce
         """
-        mask = mask_natural | mask_landuse
+        mask = mask_natural #| mask_landuse
 
         #applico la maschera
         alberi_proj_filtrati = alberi_proj[mask]
@@ -103,15 +108,20 @@ def run_rule_3(edifici, alberi):
         #controllo finale su eventuali GeoDataFrame vuoti degli edifici, gli alberi invece possono non esserci
         if edifici_proj.empty:
              logger.warning("Nessuna geometria valida trovata dopo la proiezione/filtro.")
-             return edifici.assign(visible_trees_count=0)
+             edifici['visible_trees_count'] = 0
+             edifici['visible_trees_id'] = [[] for _ in range(len(edifici))]
+             return edifici
 
     except Exception as e:
         logger.error(f"Errore nella proiezione dei dati: {e}")
-        return edifici.assign(visible_trees_count=0)
+        edifici['visible_trees_count'] = 0
+        edifici['visible_trees_id'] = [[] for _ in range(len(edifici))]
+        return edifici
 
-    #eseguo una copia per i risultati e inizializzo il punteggio a 0 per tutti
+    #eseguo una copia per i risultati e inizializzo i contenitori dei risultati
     risultato_edifici = edifici_proj.copy()
-    risultato_edifici['visible_trees_count'] = 0
+    output_counter = []
+    output_ids = []
 
     logger.info("Avvio del calcolo della linea di vista...")
 
@@ -124,6 +134,9 @@ def run_rule_3(edifici, alberi):
     """
     alberi_idx = alberi_proj.sindex
     ostacoli_idx = edifici_proj.sindex
+
+    #identifico la colonna id degli alberi (pulita nel main)
+    colonna_id_albero = 'id' if 'id' in alberi_proj.columns else None
 
     #itero su ogni edificio
     for idx, edificio in risultato_edifici.iterrows():
@@ -148,23 +161,37 @@ def run_rule_3(edifici, alberi):
         """
         selected_trees = trees_candidates[trees_candidates.geometry.within(buffer)]
 
-        #itero sugli alberi vicini richiamando la funzione apposita per la vista
-        visible_trees = 0
+        #lista per tenere traccia degli alberi visibili
+        id_visibili = []
+
+        #itero sugli alberi vicini richiamando la funzione apposita per la vista     
         for _, albero in selected_trees.iterrows():
             if is_unobstructed(albero, edificio, edifici_proj, ostacoli_idx):
-                visible_trees += 1
+                if(colonna_id_albero):
+                    id_visibili.append(albero[colonna_id_albero])
                 
-        #aggiorno il conteggio per l'edificio corrente rimappando nella lista originale
-        risultato_edifici.loc[idx, 'visible_trees_count'] = visible_trees
-
-    #creo un GDF finale e copio i risultati (indice e numero alberi visibili)
-    final_result_df = pd.DataFrame(index=edifici.index)
-    final_result_df['visible_trees_count'] = 0
-    final_result_df.loc[risultato_edifici.index, 'visible_trees_count'] = risultato_edifici['visible_trees_count']
+        #aggiorno i risultati
+        output_counter.append(len(id_visibili))
+        output_ids.append(id_visibili)
     
-    #restituisce il risultato come GeoDataFrame
-    final_result_gdf = edifici.copy()
-    final_result_gdf = final_result_gdf.merge(final_result_df, left_index=True, right_index=True)
+    #assegno i risultati al GeoDataFrame risultato_edifici
+    risultato_edifici['visible_trees_count'] = output_counter
+    risultato_edifici['visible_trees_id'] = output_ids
+
+    #creo un DF finale e copio i risultati (indice, conteggi, lista id)
+    final_result_df = pd.DataFrame(
+        {   'visible_trees_count': output_counter,
+            'visible_trees_id': output_ids
+        }, index=risultato_edifici.index)
+    
+    #restituisco il risultato come GeoDataFrame, facendo un merge con gli edifici originali per mantenere anche quelli scartati con nessuna risultato
+    final_result_gdf = edifici.merge(final_result_df, left_index=True, right_index=True, how='left')
+
+    #riempio i NaN con 0 e le liste vuote
+    final_result_gdf['visible_trees_count'] = final_result_gdf['visible_trees_count'].fillna(0).astype(int)
+    mask_NaN = final_result_gdf['visible_trees_id'].isna()
+    final_result_gdf.loc[mask_NaN, 'visible_trees_id'] = pd.Series([[]] * mask_NaN.sum(), index=final_result_gdf[mask_NaN].index)
+
     return final_result_gdf
 
 #Esempio di utilizzo singolo dell'algoritmo
