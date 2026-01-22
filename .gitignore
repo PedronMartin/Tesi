@@ -90,15 +90,15 @@ error/
 Thumbs.db
 
 # Python (Server)
-Server/venv/
-Server/__pycache__/
-Server/**/*.pyc
+Backend/venv/
+Backend/__pycache__/
+Backend/**/*.pyc
 
 # Node.js (Angular)
-application/node_modules/
-application/dist/
-application/greenratingalgorithm/
-application/.angular/
+Frontend/node_modules/
+Frontend/dist/
+Frontend/greenratingalgorithm/
+Frontend/.angular/
 
 # Log e file temporanei
 *.log
