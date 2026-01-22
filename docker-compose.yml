@@ -1,0 +1,19 @@
+services:
+
+  #Backend Python/Flask
+  backend:
+    build: ./Backend
+    container_name: backend
+    ports:
+      - "5000:5000"
+    restart: always
+
+  #Frontend Angular/Nginx
+  frontend:
+    build: ./Frontend
+    container_name: frontend
+    ports:
+      - "8080:80"
+    restart: always
+    depends_on:
+      - backend

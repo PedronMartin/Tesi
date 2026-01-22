@@ -1,4 +1,5 @@
 # Documentazione Tecnica del Backend - GreenRatingAlgorithm
+(VERSIONE OBSOLETA OTTOBRE 2025 - da modificare)
 
 ## 1. Scopo del Documento
 

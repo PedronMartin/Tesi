@@ -1,4 +1,5 @@
 # Green Rating Algorithm
+VERSIONE OBSOLETA OTTOBRE 2025 (da modificare)
 
 `GreenRatingAlgorithm` è un'applicazione web full-stack per l'analisi urbanistica e ambientale della regola 3-30-300 sul verde urbano.
 

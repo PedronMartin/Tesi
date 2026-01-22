@@ -1,0 +1,14 @@
+<div class="cards-list">
+	<ng-container *ngFor="let card of instructionCards; let last = last; let i = index">
+		<!-- OBSOLETO: reintegrare solo se preferita la versione monopagina
+		 	<instructionCard
+			[number]="i + 1"
+			[title]="card.title"
+			[longText]="card.longText"
+			[path]="card.path"
+			[button]="card.button"
+			(buttonClick)="onCardButtonClick(i)"
+		></instructionCard> -->
+		<mat-icon *ngIf="!last">arrow_forward</mat-icon>
+	</ng-container>
+</div>

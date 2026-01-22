@@ -1,0 +1,10 @@
+.cards-list mat-icon {
+	font-size: 2em;
+	vertical-align: middle;
+}
+.cards-list {
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+	flex-wrap: wrap; /*permette il ritorno a capo su schermi più piccoli*/
+}
