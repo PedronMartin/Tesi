@@ -29,7 +29,7 @@ import logging
 import numpy as np
 
 #costante di buffer di visuale in metri
-view_buffer = 30
+view_buffer = 45
 
 #costante di debuffing per gli edifici attaccati o contigui
 DEBUFFER_METRI = -0.5
