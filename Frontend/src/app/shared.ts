@@ -2,6 +2,7 @@ import {Injectable} from '@angular/core';
 import * as S from "./server-contacter";
 import {Subject} from 'rxjs';
 import { Router } from '@angular/router';
+import { literalMap } from '@angular/compiler';
 
 @Injectable({
   providedIn: 'root'
@@ -59,6 +60,44 @@ export class SharedService {
       },
       error => console.error("Errore:", error)
     );
+  }
+
+  //metodo per scaricare i risultati del calcolo
+  downloadData() {
+
+    //estraggo gli edifici risultato
+    let risultati = this.responseData.risultati;
+
+    if (!risultati || risultati.length === 0) {
+        alert("Nessun dato da scaricare!");
+        return;
+    }
+
+    try {
+        if (typeof risultati == 'string')
+           risultati = JSON.parse(risultati);
+    } catch (error) {
+        console.error("Errore nel parsing del JSON sporco:", error);
+        alert("Attenzione: i dati potrebbero non essere formattati correttamente.");
+    }
+
+    //converto i dati in stringa
+    const dataStr = JSON.stringify(risultati, null, 2);
+    
+    //creo un Binary Large Object di tipo json
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    
+    //creo un URL temporaneo per il download
+    const url = window.URL.createObjectURL(blob);
+    
+    //creo un link invisibile, lo apro e lo distruggo
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'greenRatingAlgorithm.geojson';
+    a.click();
+    
+    //pulizia dell'URL temporaneo
+    window.URL.revokeObjectURL(url);
   }
 
   /* TODO:

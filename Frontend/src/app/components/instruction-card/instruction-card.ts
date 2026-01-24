@@ -33,6 +33,7 @@ export class InstructionCard {
 
 	ngOnInit(){
 		if(this.cardId == 0) this.setCard1();
+		else if(this.cardId == 3) this.setCard3();
 		else this.setCard2();
 	}
 
@@ -52,10 +53,22 @@ export class InstructionCard {
 		this.button = "Analizza";
 	}
 
+	private setCard3(){
+		this.number = this.cardId + 1;
+		this.title = "Estrai";
+		this.longText = "Estrai: una volta completata l'analisi, puoi estrarre i dati ottenuti in formato GeoJson.";
+		this.path = "assets/estrai.svg";
+		this.button = "Estrai";
+	}
+
 	onButtonClick() {
 		//notifico l'elemento shared per catturare i dati della mappa
 		if(this.cardId == 0)
 			this.SharedService.triggerCattura();
+		//estraggo i dati
+		else if(this.cardId == 3)
+			//delega al servizio condiviso che possiede i dati
+        	this.SharedService.downloadData();
 		else
 			this.SharedService.catturaPoligono$.next();
 	}

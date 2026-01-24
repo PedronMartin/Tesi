@@ -338,11 +338,11 @@ def greenRatingAlgorithm():
         if result is None or result.empty:
              risultati_geojson = '{"type": "FeatureCollection", "features": []}'
         elif not hasattr(result, 'to_json'):
-             # se non è GDF, converti a stringa di errore (improbabile, ma sicuro)
+             #se non è GDF, converti a stringa di errore (improbabile, ma sicuro)
              app.logger.error("Il risultato non è un oggetto serializzabile!")
              risultati_geojson = '{"type": "FeatureCollection", "features": []}'
         else:
-             # serializzazione del GDF (Se fallisce qui, il problema è nel GDF stesso)
+             #serializzazione del GDF (Se fallisce qui, il problema è nel GDF stesso)
              risultati_geojson = result.to_json()
 
         #costruzione del messaggio in base alla presenza di errori non bloccanti
