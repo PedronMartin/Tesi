@@ -4,8 +4,11 @@ services:
   backend:
     build: ./Backend
     container_name: backend
-    ports:
-      - "5000:5000"
+    #ports:
+    #  - "5000:5000"
+    #permette la comunicazione interna tra container
+    expose:
+      - "5000"
     restart: always
 
   #Frontend Angular/Nginx

@@ -145,7 +145,7 @@ def increasePolygon(poly_coords, rule):
         if rule == 300:
             bufferSize = 300    # buffer di 300 metri
         elif rule == 3:
-            bufferSize = 30     # buffer di 30 metri
+            bufferSize = 45     # buffer di 45 metri
         
         # proietto in CRS metrico (UTM 32N), calcola buffer, riproietta in lat/lon
         gdf_proj = gdf_input.to_crs("EPSG:32632")
