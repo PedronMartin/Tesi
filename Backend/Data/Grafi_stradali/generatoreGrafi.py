@@ -1,8 +1,17 @@
+"""
+Script per il download e la pulizia dei grafi stradali pedonali da OpenStreetMap tramite OSMnx,
+utilizzando i confini delle città definiti nel file geojson city_boundaries.json.
+I grafi vengono salvati in formato GraphML nella cartella di output specificata.
+Ogni volta che si vuole aggiungere una città, basta aggiungerla al file city_boundaries.json con i dati corretti
+e rieseguire questo script. Porre attenzione al sistema di coordinate (CRS) usato nei confini (deve essere EPSG:4326).
+Le città già presenti non verranno riscaricate.
+"""
+
+
 import osmnx as ox
 import networkx as nx
 import geopandas as gpd
 import os
-import time
 
 #I/O
 inputFile = "./../city_boundaries.json"

@@ -108,3 +108,4 @@ Frontend/.angular/
 .env
 .angular/
 .vscode/
+.venv/

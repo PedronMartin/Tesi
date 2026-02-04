@@ -16,8 +16,11 @@ from Algoritmi.analizzatore_centrale import run_full_analysis
 import logging
 from shapely.geometry import Polygon
 
-# costante --- in metri quadrati, 10000 m^2 = 1 ettaro
+#costante in metri quadrati, 10000 m^2 = 1 ettaro
 SOGLIA_MINIMA = 10000
+
+# global var per riutilizzo poligono di input
+input_polygon_shapely = None
 
 
 
@@ -34,9 +37,6 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-
-
-
 
 ##############################################################################
 ############################Funzioni di supporto##############################
@@ -131,16 +131,9 @@ def overpass_query(query):
     return None
 
 # funzione per aumentare la dimensione del calcolo di una certa distanza, per comprendere gli elementi che rientrano nelle distanze ma non nel poligono
-def increasePolygon(poly_coords, rule):
+def increasePolygon(gdf_input, rule):
     
     try:
-        
-        #creo un GeoDataFrame con il poligono di input
-        gdf_input = gpd.GeoDataFrame(
-            [{'geometry': Polygon(poly_coords)}], 
-            crs="EPSG:4326"
-        )
-
         # definisco la dimensione del buffer in metri in base alla regola
         if rule == 300:
             bufferSize = 300    # buffer di 300 metri
@@ -242,9 +235,11 @@ def greenRatingAlgorithm():
             poly_coords = [(lon, lat) for lat, lon in polygon]
 
             #creo anche un GDF del poligono in input che servirà alla regola 30 per il calcolo dell'area totale
+            #inoltre, lo salvo in globale perchè lo riusiamo anche per il graphs_manager
             try:
+                input_polygon_shapely = Polygon(poly_coords)
                 polygon_gdf = gpd.GeoDataFrame(
-                    [{'geometry': Polygon(poly_coords)}],
+                    [{'geometry': input_polygon_shapely}],
                     crs="EPSG:4326"
                     )
             except Exception as e:
@@ -252,8 +247,8 @@ def greenRatingAlgorithm():
                 return jsonify({'errore': 'Poligono di input non valido.'}), 400
 
             #aumento il poligono in base alla regola
-            buffered_polygon_300 = increasePolygon(poly_coords, 300)
-            buffered_polygon_3 = increasePolygon(poly_coords, 3)
+            buffered_polygon_300 = increasePolygon(polygon_gdf, 300)
+            buffered_polygon_3 = increasePolygon(polygon_gdf, 3)
 
             # controllo messo qui per fallback in caso di errore nel buffer con poly_str
             if not buffered_polygon_300 or not buffered_polygon_3:
