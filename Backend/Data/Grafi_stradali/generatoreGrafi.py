@@ -1,3 +1,10 @@
+# ------------------------------------------------------------------------------
+# Author: Martin Pedron Giuseppe
+# Tesi "GreenRatingAlgorithm: un algoritmo per la valutazione automatica della regola 3-30-300 sul verde urbano di prossimità"
+# University of Verona - Tesi di Laurea CdL in Informatica, a.a. 2024/2025
+# Relatore: Prof. Davide Quaglia
+# ------------------------------------------------------------------------------
+
 """
 Script per il download e la pulizia dei grafi stradali pedonali da OpenStreetMap tramite OSMnx,
 utilizzando i confini delle città definiti nel file geojson city_boundaries.json.
