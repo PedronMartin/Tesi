@@ -21,7 +21,7 @@
 """
 
 #importazioni
-import geopandas as gpd
+import pandas as pd
 import logging
 
 #importa le funzioni dagli script singoli
@@ -91,15 +91,46 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
     #partiamo dal GDF originale
     edifici_finali = edifici.copy()
 
+    """
+    Precedentemente avevo usato un join diretto tra i GDF dei risultati e quello degli edifici, ma questo causava problemi se una regola falliva
+    causa GDF vuoti (gestito col fallback non causava errore bloccante questa parte). In questo modo, sia edifici_finali che i risultati
+    delle singole regole avevano le stesse colonne di arricchimento sulle regole. Seppur coerente con i risultati, il join falliva
+    in quanto non riusciva a capire a quale colonna tra le due omonime dare priorità.
+    Ora invece, non esegue più un join ma un assegnazione diretta. In questo modo, se una regola fallisce o un GDF è vuoto (es. alberi), 
+    e viene prodotto un set di edifici risultato con le colonne omonime a 0, anche edifici_finali è a 0 e semplicemente i risultati vengono sovvrascritti.
+    """
     #uniamo i risultati della Regola 3 (visible_trees_count) alla tabella edifici_finali
-    #gestiamo anche il caso di ritorno fallback della regola (tutti i risultati a 0)
+    #gestiamo anche il caso di ritorno fallback della regola (tutti i risultati a 0 con setting indice uguale)
+    edifici_finali['visible_trees_count'] = 0
+    edifici_finali['visible_trees_id'] = pd.Series([[] for _ in range(len(edifici_finali))], index=edifici_finali.index)
+
+    #se esistono risultati validi, li uniamo; altrimenti lasciamo i valori di default appena impostati
+    if 'visible_trees_count' in risultati_3.columns:
+        edifici_finali['visible_trees_count'] = risultati_3['visible_trees_count']
+    if 'visible_trees_id' in risultati_3.columns:
+        edifici_finali['visible_trees_id'] = risultati_3['visible_trees_id']
+
+    #OLD VERSION con Join
+    """
     if 'visible_trees_count' in risultati_3.columns and 'visible_trees_id' in risultati_3.columns:
         edifici_finali = edifici_finali.join(risultati_3[['visible_trees_count', 'visible_trees_id']])
     else:
         edifici_finali['visible_trees_count'] = 0
         edifici_finali['visible_trees_id'] = [[] for _ in range(len(edifici_finali))]
+    """
 
-    #uniamo i risultati della Regola 300 (score_300 e lista id aree verdi) con gestione del fallback con score 0 e liste vuote
+    #identica procedura per le colonne della regola 300 (score_300 e green_areas_id)
+    edifici_finali['score_300'] = 0
+    edifici_finali['green_areas_id'] = pd.Series([[] for _ in range(len(edifici_finali))], index=edifici_finali.index)
+
+    if 'score_300' in risultati_300.columns:
+        edifici_finali['score_300'] = risultati_300['score_300']
+    
+    if 'green_areas_id' in risultati_300.columns:
+        edifici_finali['green_areas_id'] = risultati_300['green_areas_id']
+
+    #OLD VERSION con Join
+    """
     if 'score_300' in risultati_300.columns:
         colonne_da_unire = ['score_300']
         if 'green_areas_id' in risultati_300.columns:
@@ -108,6 +139,7 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
     else:
         edifici_finali['score_300'] = 0
         edifici_finali['green_areas_id'] = [[] for _ in range(len(edifici_finali))]
+    """
     
     #uniamo il valore della regola 30 (coverage_percentage) che è uguale per tutti
     edifici_finali['coverage_percentage'] = percentage_30

@@ -15,13 +15,13 @@ import pandas as pd
 from Algoritmi.analizzatore_centrale import run_full_analysis
 import logging
 from shapely.geometry import Polygon
+from graphsManager import graphs_manager
 
 #costante in metri quadrati, 10000 m^2 = 1 ettaro
 SOGLIA_MINIMA = 10000
 
 # global var per riutilizzo poligono di input
 input_polygon_shapely = None
-
 
 
 #####################################################################################
@@ -105,8 +105,27 @@ def build_query(type, poly_str):
     else:
         query = ""
     return query
-    
 
+"""
+Questa funzione gestisce il caricamento degli alberi in base alla città. Se la città è 'Premium', ossia ricade dentro i confini noti,
+carica gli alberi YOLO corrispondenti. Altrimenti, esegue la query Overpass anche per gli alberi (nello stesso modo di prima).
+"""
+def getTrees(city_name, buffered_polygon_3):
+    #se la città non è 'Premium', eseguo la query Overpass
+    if city_name is None:
+        app.logger.info("Poligono di input fuori dai confini delle città YOLO. Uso OSM puro.")
+        trees_query = build_query(1, buffered_polygon_3)
+        return overpass_query(trees_query)
+    #altrimenti, carico i corrispondenti alberi YOLO
+    else:
+        #TODO: integrare VersioneAlessio qui. Per ora faccio la stessa cosa del ramo if
+        app.logger.info("Poligono di input dentro i confini di una città YOLO. Richiesta analisi premium effettuata.")
+        trees_query = build_query(1, buffered_polygon_3)
+        return overpass_query(trees_query)
+    
+"""
+Questa funzione esegue la query Overpass API con gestione di endpoint alternativi in caso di sovraccarico o timeout.
+"""
 def overpass_query(query):
 
     # lista di endpoint alternativi per la richiesta (spesso sovvraccaricati)
@@ -210,14 +229,17 @@ def unpack_gdf_features(geojson_data, crs="EPSG:4326"):
 
 # TODO: forse ha senso esporre le sotto funzioni per il calcolo di solo alcune regole?
 # TODO: manca la heatMap: da aggiungere qui o nel client?
+# TODO: aggiungere autenticazione API key per sicurezza?
+# TODO: aggiungere limitazioni di rate limiting per evitare abusi?
+# TODO: aggiungere sistema crs dinamico per rendere l'applicazione globale (il sistema metrico è lo stesso per tutti?)
 def greenRatingAlgorithm():
 
     try:
-        # ricezione dei dati da client
+        #ricezione dei dati da client
         dati_ricevuti = request.get_json()
         polygon = dati_ricevuti.get('polygon')
         
-        # query per Overpass API
+        #query per Overpass API
         if(polygon):
 
             """
@@ -257,13 +279,19 @@ def greenRatingAlgorithm():
                 buffered_polygon_3 = formatted_poly
                 app.logger.info(f"Impossibile gonfiare poligono di input: buffer settati esattamente come l'input. Output potrebbe essere incompleto.")
 
+            #analizzo il poligono in input: se la zona richiesta è nei confini dei dati YOLO/OSMnx oppure se proseguire con il modello OSM puro
+            #lascio None come default se non trovato; runFullAnalysis gestisce il None per usare OSM puro
+            #graphsManager è un singleton, quindi lo creo una volta sola durante l'importazione e lo riuso (l'instanza è graphs_manager)
+            city_name = graphs_manager.get_city_from_polygon(input_polygon_shapely)
+
+            #chiamo la funzione getTrees, che sulla base della città carica gli alberi YOLO, altrimenti esegue la query Overpass
+            alberi = getTrees(city_name, buffered_polygon_3)
+            
             # costruisco le query e le eseguo
             buildings_query = build_query(0, formatted_poly)
             edifici = overpass_query(buildings_query)
             if edifici is None:
                 return jsonify({'errore': 'Nessun edificio selezionato'}), 504
-            trees_query = build_query(1, buffered_polygon_3)
-            alberi = overpass_query(trees_query)
             green_areas_query = build_query(2, buffered_polygon_300)
             aree_verdi = overpass_query(green_areas_query)
         else:
