@@ -177,9 +177,10 @@ private loadData(){
             if(this.lightedLayers)
                 this.lightedLayers.clearLayers();
 
-            //recupero i dati dell'edificio selezionato (id aree verdi e alberi)
+            //recupero i dati dell'edificio selezionato (id aree verdi, id alberi, percorso pedonale)
             const greenAreaIdList = feature.properties.green_areas_id;
             const treesIdList = feature.properties.visible_trees_id;
+            const pathGreenArea = feature.properties.percorso_pedonale;
 
             //se non ci sono elementi collegati o se il layer aree verdi non esiste, mi fermo per le aree verdi
             if(greenAreaIdList && greenAreaIdList.length > 0 && this.greenAreasLayer){
@@ -201,6 +202,28 @@ private loadData(){
                       clone.addTo(this.lightedLayers);
                   }
               });
+
+              //se c'è un percorso, lo mostro
+              if(pathGreenArea && typeof pathGreenArea === 'string') {
+                  try {
+                      const pathGeoJSON = JSON.parse(pathGreenArea);
+                      
+                      //creo il layer della linea
+                      const pathLayer = this.L.geoJSON(pathGeoJSON, {
+                          style: {
+                              color: "#0000FF",
+                              weight: 4,
+                              opacity: 0.8
+                          }
+                      });
+                      
+                      //aggiungo al gruppo di caching per la cancellazione
+                      pathLayer.addTo(this.lightedLayers);
+                      
+                  } catch (err) {
+                      console.error("Errore parsing percorso pedonale:", err);
+                  }
+              }
             }
 
             //se non ci sono elementi collegati o se il layer alberi non esiste, mi fermo per gli alberi

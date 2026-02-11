@@ -25,22 +25,54 @@
 """
 
 # importazioni
+import pandas as pd
 import geopandas as gpd
 import logging
+from .graphs_calculator import calculate_pedestrian_path, infinity_dist
 
-def run_rule_300(edifici, aree_verdi):
+#definisco il logger globale
+logger = logging.getLogger("regola300")
 
-    # avvio logger regola
-    logger = logging.getLogger("regola300")
+def run_rule_300(edifici, aree_verdi, city_name, grafo):
 
     # controllo input (in caso di errore, restituisco edifici con score 0 e lista vuota)
     if edifici.empty or aree_verdi.empty:
         logger.warning("Dati insufficienti per il calcolo. Assicurati che i GeoDataFrame non siano vuoti.")
-        edifici = edifici.assign(score_300=0)
-        edifici['green_areas_id'] = [[] for _ in range(len(edifici))]
+        edifici = _return_default(edifici)
         return edifici
+    
+    """
+    Chiamiamo l'algoritmo base, in modo da avere allineato l'incolonnamento dei risultati (score_300, green_areas_id, distanza_pedonale) per tutti.
+    inoltre, all'algoritmo con grafo, più pesante, daremo come input solo gli edifici candidati (ovvero quelli che hanno score_300=1)
+    in modo da ottimizzare il calcolo pedonale solo su quelli che hanno già superato il test geometrico.
+    infinity_dist viene casterizzato a float per coerenza, perchè i risultati con grafi reali saranno in metri e con decimali
+    """
+    logger.info("Calcolo regola 300 con metodo geometrico.")
+    edifici_processati = calculate_buffer_method(edifici, aree_verdi)
+    edifici_processati['distanza_pedonale'] = float(infinity_dist)
 
-    # proietto i CRS in EPSG:32632 per calcoli metrici
+    if city_name and grafo is not None:
+        logger.info(f"Calcolo regola 300 con grafi pedonali per la città: {city_name}")
+        candidati = edifici_processati[edifici_processati['score_300'] == 1].copy()
+        if not candidati.empty:
+            #uso la funzione update di pandas per aggiornare solo la colonna 'distanza_pedonale', mantenendo intatti gli altri campi e gli indici
+            edifici_grafo = calculate_pedestrian_path(candidati, aree_verdi, grafo)
+            #check di sicurezza sui percorsi
+            if 'percorso_pedonale' not in edifici_processati.columns:
+                edifici_processati['percorso_pedonale'] = None
+            edifici_processati.update(edifici_grafo[['distanza_pedonale', 'percorso_pedonale']])
+
+            #ricalcolo lo score_300 basandomi sulla distanza reale: se prima era 1 (geometrico) ma a piedi sono >300m, deve diventare 0.
+            #il valore infinty_dist è -1, quindi aggiungo la condizione che deve essere positivo il valore
+            mask = edifici_processati.index.isin(candidati.index)
+            condition = (edifici_processati['distanza_pedonale'] >= 0) & (edifici_processati['distanza_pedonale'] <= 300)
+            edifici_processati.loc[mask, 'score_300'] = condition.astype(int)
+
+    return edifici_processati
+
+def calculate_buffer_method(edifici, aree_verdi):
+
+    #proietto i CRS in EPSG:32632 per calcoli metrici
     try:
         if edifici.crs is None:
             edifici.set_crs("EPSG:4326", inplace=True)
@@ -59,15 +91,15 @@ def run_rule_300(edifici, aree_verdi):
         edifici_buffer['geometry'] = edifici_buffer.geometry.buffer(300)
         edifici_buffer['original_index'] = edifici_buffer.index
 
-        # unione spaziale tra i buffer degli edifici e le aree verdi (inner è join base, predicate 'intersects' controlla l'intersezione)
+        #unione spaziale tra i buffer degli edifici e le aree verdi (inner è join base, predicate 'intersects' controlla l'intersezione)
         join_result = gpd.sjoin(edifici_buffer, aree_verdi_proj, how="inner", predicate='intersects')
 
-        # crea copia per il risultato finale, inizializzo colonna punteggio a 0 e inizializzo la colonna degli ID come liste vuote
+        #creo copia per il risultato finale, inizializzo colonna punteggio a 0 e inizializzo la colonna degli ID come liste vuote
         risultato_finale = edifici.copy()
         risultato_finale['score_300'] = 0
         risultato_finale['green_areas_id'] = [[] for _ in range(len(risultato_finale))]
 
-        # se ci sono intersezioni, si assegna loro il punteggio senza ripetere gli indici originali
+        #se ci sono intersezioni, si assegna loro il punteggio senza ripetere gli indici originali
         if not join_result.empty:
 
             #flag SI/NO all'intersezione
@@ -92,12 +124,16 @@ def run_rule_300(edifici, aree_verdi):
                 logger.error(f"Colonna {colonna_target} non trovata. Colonne presenti: {join_result.columns.tolist()}")
 
     except Exception as e:
-        logger.error(f"Errore nel calcolo della regola 300: {e}")
-        edifici = edifici.assign(score_300=0)
-        edifici['green_areas_id'] = [[] for _ in range(len(edifici))]
-        return edifici
-
+        edifici = _return_default(edifici)
+    
     return risultato_finale
+
+def _return_default(edifici):
+    res = edifici.copy()
+    res['score_300'] = 0
+    res['green_areas_id'] = pd.Series([[] for _ in range(len(res))], index=res.index)
+    res['distanza_pedonale'] = float(infinity_dist)
+    return res
 
 #Esempio di utilizzo singolo dell'algoritmo
 """edifici = gpd.read_file("./INPUT/Edifici.geojson")

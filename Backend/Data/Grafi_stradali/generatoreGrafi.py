@@ -68,9 +68,9 @@ def download_graphs():
             
         try:
             
-            #download grafo pedonale. La flag simplify riduce i nodi inutili (es. strade dritte con troppi punti)
+            #download grafo pedonale. La flag simplify riduce i nodi inutili (es. strade dritte con troppi punti). Noi li vogliamo quindi settiamo False.
             print("Download grafo pedonale da OSM (attendere)")
-            G = ox.graph_from_polygon(geometry, network_type='walk', simplify=True)
+            G = ox.graph_from_polygon(geometry, network_type='walk', simplify=False)
             
             #pulisco dati con funzione ausiliaria
             G_clean = get_largest_component_safe(G)
@@ -88,3 +88,28 @@ def download_graphs():
 #MAIN
 if __name__ == "__main__":
     download_graphs()
+
+"""
+COPIA E INCOLLA LA PARTE QUI SOTTO PER VEDERE I GRAFI USATI SU OVERPASS TURBO
+/*
+  Query per visualizzare la "strada percorribile da un pedone" (simile a OSMnx network_type='walk' che scarichiamo per il progetto).
+  Include sia i sentieri puri che le strade urbane percorribili a piedi.
+*/
+[out:json][timeout:25];
+
+(
+  //include: marciapiedi, sentieri, ciclabili, scalinate, zone pedonali, strade residenziali condivise
+  way["highway"~"footway|path|steps|pedestrian|living_street|track|cycleway"]({{bbox}});
+
+  //include: residenziali, di servizio, terziarie, secondarie, primarie.
+  //esclude: Autostrade, superstrade e strade dove il tag 'foot' è 'no' (vietato).
+  way["highway"~"residential|service|unclassified|tertiary|secondary|primary"]
+     ["highway"!~"motorway|motorway_link|trunk|trunk_link"] // Niente autostrade
+     ["foot"!~"no"] // Niente strade vietate ai pedoni
+     ({{bbox}});
+);
+
+out body;
+>;
+out skel qt;
+"""

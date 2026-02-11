@@ -130,9 +130,12 @@ def overpass_query(query):
 
     # lista di endpoint alternativi per la richiesta (spesso sovvraccaricati)
     overpass_endpoints = [
+         #il primo è il principale: reindirizza automaticamente al 3o e 4o, quindi lo provo subito, se non va riprovo singolarmente comunque i due endpoint
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
         "https://lz4.overpass-api.de/api/interpreter",
         "https://z.overpass-api.de/api/interpreter",
-        "https://overpass.kumi.systems/api/interpreter"
+        "https://osm.hpi.de/overpass/api/interpreter"
     ]
     import time
     for url in overpass_endpoints:
@@ -283,6 +286,7 @@ def greenRatingAlgorithm():
             #lascio None come default se non trovato; runFullAnalysis gestisce il None per usare OSM puro
             #graphsManager è un singleton, quindi lo creo una volta sola durante l'importazione e lo riuso (l'instanza è graphs_manager)
             city_name = graphs_manager.get_city_from_polygon(input_polygon_shapely)
+            grafo = graphs_manager.get_graph(city_name) if city_name else None
 
             #chiamo la funzione getTrees, che sulla base della città carica gli alberi YOLO, altrimenti esegue la query Overpass
             alberi = getTrees(city_name, buffered_polygon_3)
@@ -349,7 +353,7 @@ def greenRatingAlgorithm():
             return jsonify({'errore': f'Errore nella pulizia dei dati: {e}'}), 500
 
         # esecuzione degli algoritmi
-        result, errori = run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf)
+        result, errori = run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf, city_name, grafo)
 
         # definiamo un GeoJSON vuoto standard da usare come fallback
         empty_geojson_fallback = '{"type": "FeatureCollection", "features": []}'

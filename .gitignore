@@ -94,6 +94,10 @@ Backend/venv/
 Backend/__pycache__/
 Backend/**/*.pyc
 
+#Backend file pesanti
+Backend/Data/Grafi_stradali/*.graphml
+Backend/Data/Trees_YOLO/*
+
 # Node.js (Angular)
 Frontend/node_modules/
 Frontend/dist/

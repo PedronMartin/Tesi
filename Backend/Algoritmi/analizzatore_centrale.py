@@ -37,7 +37,7 @@ MIN_DISTANCE_GREEN_AREA = 300
 """
     Funzione principale che esegue l'analisi completa 3-30-300.
 """
-def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
+def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf, city_name, grafo):
 
     # file di debug output e errori non bloccanti da ritornare al main + inizializzazione logger
     errori_rilevati = []
@@ -77,7 +77,7 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
 
     logger.info("--- Esecuzione Regola 300 (Area Verde Vicina) ---")
     try:
-        risultati_300 = run_rule_300(edifici, aree_verdi)
+        risultati_300 = run_rule_300(edifici, aree_verdi, city_name, grafo)
         num_soddisfatti_300 = (risultati_300['score_300'] >= 1).sum()
         logger.info(f"RISULTATO REGOLA 300: {num_soddisfatti_300} edifici soddisfano la regola (su {len(edifici)}).")
     except Exception as e:
@@ -85,6 +85,9 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
         errori_rilevati.append("Regola 300 fallita")
         risultati_300 = edifici.copy()
         risultati_300['score_300'] = 0
+        risultati_300['green_areas_id'] = [[] for _ in range(len(risultati_300))]
+        risultati_300['distanza_pedonale'] = 999
+        risultati_300['percorso_pedonale'] = None
 
     logger.info("Merge dei risultati...")
 
@@ -122,12 +125,19 @@ def run_full_analysis(edifici, alberi, aree_verdi, polygon_gdf):
     #identica procedura per le colonne della regola 300 (score_300 e green_areas_id)
     edifici_finali['score_300'] = 0
     edifici_finali['green_areas_id'] = pd.Series([[] for _ in range(len(edifici_finali))], index=edifici_finali.index)
-
+    edifici_finali['distanza_pedonale'] = -1
+    edifici_finali['percorso_pedonale'] = None
     if 'score_300' in risultati_300.columns:
         edifici_finali['score_300'] = risultati_300['score_300']
     
     if 'green_areas_id' in risultati_300.columns:
         edifici_finali['green_areas_id'] = risultati_300['green_areas_id']
+
+    if 'distanza_pedonale' in risultati_300.columns:
+        edifici_finali['distanza_pedonale'] = risultati_300['distanza_pedonale']
+
+    if 'percorso_pedonale' in risultati_300.columns:
+        edifici_finali['percorso_pedonale'] = risultati_300['percorso_pedonale']
 
     #OLD VERSION con Join
     """
