@@ -1,1 +1,13 @@
 <router-outlet></router-outlet>
+<div *ngIf="shared.isLoading$ | async" class="barra_di_caricamento">
+  <div class="box_nero">
+    <img src="../assets/clessidra.jpg" class="clessidra" alt="Caricamento...">
+    <div class="testo">
+      Calcolo 3-30-300 in corso...<br><br>
+      <span>
+          (Potrebbe volerci qualche minuto)
+          <br><br><b>NON AGGIORNARE LA PAGINA</b>
+      </span>
+    </div>
+  </div>
+</div>

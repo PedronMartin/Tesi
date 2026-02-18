@@ -145,11 +145,45 @@ private loadData(){
             const colorTrees = props.visible_trees_count >= 3 ? 'green' : '#d9534f';
             popupContent += `Alberi visibili: <b style="color:${colorTrees}">${props.visible_trees_count}</b><br>`;
 
-            const colorPark = props.score_300 === 1 ? 'green' : '#d9534f';
-            popupContent += `Accesso Parco (300m): <b style="color:${colorPark}">${props.score_300 === 1 ? 'Sì' : 'No'}</b><br>`;
-
             const colorCover = props.coverage_percentage >= 30.0 ? 'green' : '#d9534f';
-            popupContent += `Copertura Zona: <b style="color:${colorCover}">${props.coverage_percentage.toFixed(2)}%</b>`;
+            popupContent += `Copertura Zona: <b style="color:${colorCover}">${props.coverage_percentage.toFixed(2)}%</b><br>`;
+
+            let distText = '';
+            let distColor = 'green'; //green di base
+
+            //caso di bocciatura
+            if(props.score_300 == 0){
+                distColor = '#d9534f';
+                if(props.distanza_pedonale !== undefined && props.distanza_pedonale > -1){
+                    const distString = parseFloat(props.distanza_pedonale).toFixed(0);
+
+                    distText = `No (distanza pedonale: ${distString}m)`;
+                }
+                else
+                  distText = 'No (oltre 300m)';
+            }
+            //caso score valido
+            else {
+                
+                //caso 1: distanza pedonale disponibile (per grafo o per accesso diretto)
+                if(props.distanza_pedonale !== undefined && props.distanza_pedonale > -1){
+
+                    //prendo sia il valore numerico per il confronto sia la stringa arrotondata per la visualizzazione
+                    const distValue = parseFloat(props.distanza_pedonale);
+                    const distString = distValue.toFixed(0);
+                    
+                    if (distValue <= 20)
+                        distText = `Sì (accesso diretto: ${distString} metri)`;
+                    else
+                        distText = `Sì (percorso pedonale: ${distString}m)`;
+                }
+                //caso 2: calcolo geometrico in linea d'aria per città non premium
+                else {
+                    distText = 'Sì (distanza euclidea)';
+                }
+            }
+
+            popupContent += `Accesso Parco: <b style="color:${distColor}">${distText}</b><br>`;
 
             layer.bindPopup(popupContent);
           }

@@ -22,6 +22,7 @@ import json
 from shapely.geometry import mapping
 import geopandas as gpd
 import numpy as np
+import math
 
 infinity_dist = -1
 
@@ -57,13 +58,17 @@ def calculate_pedestrian_path(edifici, aree_verdi, grafo):
     Precedentemente, consideravamo il centroide dell'area verde come nodo di partenza/arrivo. Tuttavia, questo potrebbe non essere rappresentativo
     della reale accessibilità pedonale, specialmente per aree verdi che hanno un percorso pedonale interno tracciato da OSM (linee rosse tratteggiate).
     In quel caso, il nodo più vicino al centroide potrebbe essere DENTRO l'area verde, e quindi non rappresentare un punto di accesso pedonale reale.
-    Per migliorare la mappatura, campioniamo punti ogni tot metri SUL perimetro dell'area verde, che è più probabile rappresentino punti di accesso
+    Per migliorare la mappatura, campioniamo punti ogni tot metri (sampling_distance) SUL perimetro dell'area verde, che è più probabile rappresentino punti di accesso
     pedonale reali. In questo modo, se c'è un percorso pedonale interno tracciato da OSM, i nodi più vicini saranno su quel percorso, ma non all'interno.
+    Inoltre, per non avere nodi di proiezione sulla strada troppo lontani dall'area verde, applichiamo un cutoff (max_snap_distance) alla mappatura iniziale
+    area verde - nodo grafo. Se il nodo più vicino è oltre quel cutoff, non lo consideriamo. Se per un area verde non ci sono ingressi 'comodi' di questo tipo,
+    l'area verde la consideriamo irranggiungibile.
     """
     print("Mappatura aree verdi sul grafo.")
     green_boundary_points_x = []
     green_boundary_points_y = []
     sampling_distance = 40
+    max_snap_distance = 35
 
     #itero sulle aree verdi
     for geom in verdi_proj.geometry:
@@ -78,7 +83,8 @@ def calculate_pedestrian_path(edifici, aree_verdi, grafo):
 
             #estraggo il perimetro e ne calcolo la lunghezza
             boundary = poly.exterior
-            if boundary is None: continue
+            if boundary is None:
+                continue
             length = boundary.length
             
             #se il perimetro è molto piccolo, prendo solo il centroide
@@ -96,14 +102,31 @@ def calculate_pedestrian_path(edifici, aree_verdi, grafo):
                     green_boundary_points_x.append(pt.x)
                     green_boundary_points_y.append(pt.y)
 
+    #candidati nodi più vicini a quei punti di campionamento sul perimetro
+    candidate_nodes = ox.nearest_nodes(grafo, green_boundary_points_x, green_boundary_points_y)
+    
+    #verifico che il nodo trovato sia effettivamente vicino al parco.
+    valid_sources = set()
+    for i, node_id in enumerate(candidate_nodes):
+        #coordinata punto sul perimetro
+        px = green_boundary_points_x[i]
+        py = green_boundary_points_y[i]
+        
+        #coordinata nodo del grafo
+        nx_coord = grafo.nodes[node_id]['x']
+        ny_coord = grafo.nodes[node_id]['y']
+        
+        #calcolo distanza in linea d'aria (già in metri)
+        dist_reale = math.sqrt((px - nx_coord)**2 + (py - ny_coord)**2)
+        
+        if dist_reale <= max_snap_distance:
+            valid_sources.add(node_id)
 
-
-
-    #osmnx.nearest_nodes vuole coordinate x e y separate
-    green_nodes = ox.nearest_nodes(grafo, green_boundary_points_x, green_boundary_points_y)
     #per best-practice, elimino i nodi duplicati per ottimizzare Dijkstra. I nodi dei grafi potrebbero effettivamente ripetersi in quanto 
     #sono dove le strade si intersecano, e più aree verdi potrebbero essere mappate sullo stesso nodo.
-    sources=list(set(green_nodes))
+    sources=list(valid_sources)
+    if not sources:
+        return copia_edifici
 
     #calcoliamo la distanza di TUTTI i nodi del grafo verso il set di nodi verdi in un colpo solo.
     #cutoff=350: ottimizzazione ---> l'algoritmo smette di cercare oltre i 350 metri.

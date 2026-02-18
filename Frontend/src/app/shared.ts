@@ -1,8 +1,7 @@
 import {Injectable} from '@angular/core';
 import * as S from "./server-contacter";
-import {Subject} from 'rxjs';
+import {Subject, BehaviorSubject} from 'rxjs';
 import { Router } from '@angular/router';
-import { literalMap } from '@angular/compiler';
 
 @Injectable({
   providedIn: 'root'
@@ -16,6 +15,9 @@ export class SharedService {
   //Subject per notificare la richiesta di cattura (notificaCattura per la prima mappa, catturaPoligono per la seconda)
   public notificaCattura$ = new Subject<void>();
   public catturaPoligono$ = new Subject<void>();
+
+  //gestione caricamento impostato a false
+  public isLoading$ = new BehaviorSubject<boolean>(false);
 
   public onPolygonReady: (() => void) | null = null;
   constructor(
@@ -51,14 +53,23 @@ export class SharedService {
 
   // metodo per inviare la richiesta di calcolo al server
   serverRequest() {
+    this.isLoading$.next(true);
     this.serverContact.runFullAnalysis(this.PolygonData).subscribe(
       response => {
         this.responseData = response;
+        this.isLoading$.next(false);
         setTimeout(() => {
           this.router.navigate(['/calcolo']);
         }, 100);
       },
-      error => console.error("Errore:", error)
+      error => {
+        console.error("Errore:", error);
+        this.isLoading$.next(false); 
+        alert("Si è verificato un errore durante l'analisi: " + error.message);
+        /*
+        TODO: migliorare gestione degli errori di ritorno dal server
+        */
+      }
     );
   }
 

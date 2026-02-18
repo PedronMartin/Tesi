@@ -50,23 +50,57 @@ def run_rule_300(edifici, aree_verdi, city_name, grafo):
     logger.info("Calcolo regola 300 con metodo geometrico.")
     edifici_processati = calculate_buffer_method(edifici, aree_verdi)
     edifici_processati['distanza_pedonale'] = float(infinity_dist)
+    edifici_processati['percorso_pedonale'] = None
 
     if city_name and grafo is not None:
         logger.info(f"Calcolo regola 300 con grafi pedonali per la città: {city_name}")
         candidati = edifici_processati[edifici_processati['score_300'] == 1].copy()
         if not candidati.empty:
-            #uso la funzione update di pandas per aggiornare solo la colonna 'distanza_pedonale', mantenendo intatti gli altri campi e gli indici
-            edifici_grafo = calculate_pedestrian_path(candidati, aree_verdi, grafo)
-            #check di sicurezza sui percorsi
-            if 'percorso_pedonale' not in edifici_processati.columns:
-                edifici_processati['percorso_pedonale'] = None
-            edifici_processati.update(edifici_grafo[['distanza_pedonale', 'percorso_pedonale']])
+            #ritorna una serie con id e distanze
+            edifici_ad_accesso_diretto = remove_direct_access(candidati, aree_verdi, grafo.graph['crs'])
 
-            #ricalcolo lo score_300 basandomi sulla distanza reale: se prima era 1 (geometrico) ma a piedi sono >300m, deve diventare 0.
-            #il valore infinty_dist è -1, quindi aggiungo la condizione che deve essere positivo il valore
-            mask = edifici_processati.index.isin(candidati.index)
-            condition = (edifici_processati['distanza_pedonale'] >= 0) & (edifici_processati['distanza_pedonale'] <= 300)
-            edifici_processati.loc[mask, 'score_300'] = condition.astype(int)
+            #aggiorno il gdf principale con i risultati degli edifici ad accesso diretto
+            if not edifici_ad_accesso_diretto.empty:
+                ids_diretti = edifici_ad_accesso_diretto.index
+                edifici_processati.loc[ids_diretti, 'distanza_pedonale'] = edifici_ad_accesso_diretto
+            #indice vuoto nel caso di nessun edificio ad accesso diretto
+            else:
+                ids_diretti = pd.Index([])
+
+            #prendo i candidati totali (buffer 300) MENO quelli ad accesso diretto ad un area verde
+            ids_da_calcolare = candidati.index.difference(ids_diretti)
+            if not ids_da_calcolare.empty:
+                candidati_finali = edifici_processati.loc[ids_da_calcolare].copy()
+                #uso la funzione update di pandas per aggiornare solo la colonna 'distanza_pedonale', mantenendo intatti gli altri campi e gli indici
+                edifici_grafo = calculate_pedestrian_path(candidati_finali, aree_verdi, grafo)
+                #check di sicurezza sui percorsi
+                if 'percorso_pedonale' not in edifici_processati.columns:
+                    edifici_processati['percorso_pedonale'] = None
+                edifici_processati.loc[ids_da_calcolare, 'distanza_pedonale'] = edifici_grafo['distanza_pedonale'].values
+                edifici_processati.loc[ids_da_calcolare, 'percorso_pedonale'] = edifici_grafo['percorso_pedonale'].values
+
+            #identifico tra i candidati chi ha fallito il test pedonale
+            failed_mask = (edifici_processati.index.isin(candidati.index)) & \
+                          ((edifici_processati['distanza_pedonale'] > 300) | 
+                           (edifici_processati['distanza_pedonale'] < 0))
+            
+            #svuoto tutti i campi di chi ha fallito, mantenendo però la distanza pedonale che può comunque essere interessante
+            if failed_mask.any():
+                edifici_processati.loc[failed_mask, 'score_300'] = 0
+                edifici_processati.loc[failed_mask, 'percorso_pedonale'] = None
+                indici_falliti = edifici_processati[failed_mask].index
+                empty_series = pd.Series([[] for _ in range(len(indici_falliti))], index=indici_falliti)
+                edifici_processati.loc[failed_mask, 'green_areas_id'] = empty_series
+                """
+                Per la lista id non si poteva fare assegnazione diretti di lista vuota in quanto pandas non lo permette sempre.
+                Generava un errore del tipo: Must have equal len keys and value when setting with an ndarray.
+                """
+
+            #per coerenza, confermo a 1 chi ha passato
+            passed_mask = (edifici_processati.index.isin(candidati.index)) & \
+                          ((edifici_processati['distanza_pedonale'] <= 300) & 
+                           (edifici_processati['distanza_pedonale'] >= 0))
+            edifici_processati.loc[passed_mask, 'score_300'] = 1
 
     return edifici_processati
 
@@ -134,6 +168,45 @@ def _return_default(edifici):
     res['green_areas_id'] = pd.Series([[] for _ in range(len(res))], index=res.index)
     res['distanza_pedonale'] = float(infinity_dist)
     return res
+
+"""
+Rimuove gli edifici che hanno accesso diretto (in linea d'aria) a un'area verde, senza ostacoli.
+Questo perché, se un edificio ha accesso diretto a un'area verde, non ha senso calcolare la distanza pedonale tramite grafo, in quanto è già soddisfatto.
+Inoltre, in questi casi, la mappatura iniziale area verde - nodo grafo potrebbe essere inaccurata (nodo del grafo potrebbe essere dentro l'area verde), e quindi 
+il calcolo del percorso pedonale potrebbe essere errato o addirittura fallire. Rimuovendo questi casi, ci concentriamo solo sugli edifici che realmente necessitano del calcolo pedonale.
+Ritorna: pd.Series (serie) contenente le distanze calcolate, indicizzata con gli id degli edifici ad accesso diretto.
+"""
+def remove_direct_access(edifici_candidati, aree_verdi, crs):
+    
+    soglia = 20
+    #inizializzo la serie dei risultati con float per distanze
+    results = pd.Series(dtype=float)
+    
+    try:
+        #solita proiezione metrica
+        cand_proj = edifici_candidati.to_crs(crs)
+        verdi_proj = aree_verdi.to_crs(crs)
+        
+        #calcolo distanza geometrica esatta verso il verde più vicino per ogni edificio (how='left' mantiene tutti gli edifici)
+        nearest = gpd.sjoin_nearest(cand_proj, verdi_proj, distance_col="geom_dist", how="left")
+        
+        #raggruppa per edificio (un edificio può toccare più verdi)
+        min_dists = nearest.groupby(nearest.index)['geom_dist'].min()
+        
+        #maschera per chi soddisfa l'accesso diretto (distanza <= soglia)
+        direct_mask = min_dists <= soglia
+        
+        #ritorno solo la serie degli edifici soddisfatti con le loro distanze
+        results = min_dists[direct_mask]
+        
+    except Exception as e:
+        logger.error(f"Errore nel modulo remove_direct_access: {e}. Nessun accesso diretto rilevato.")
+        #in caso di errore, restituisco serie vuota, così tutti andranno al grafo (fallback sicuro)
+        return pd.Series(dtype=float)
+        
+    return results
+
+
 
 #Esempio di utilizzo singolo dell'algoritmo
 """edifici = gpd.read_file("./INPUT/Edifici.geojson")

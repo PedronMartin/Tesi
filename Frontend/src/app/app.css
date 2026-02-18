@@ -1,0 +1,37 @@
+/*copro tutto lo schermo bloccandolo*/
+.barra_di_caricamento {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.box_nero {
+  background-color: #1a1a1a;
+  padding: 30px;
+  max-width: 400px;
+  width: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.clessidra {
+  width: 80px;
+  height: auto;
+  margin-bottom: 20px;
+}
+
+.testo {
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
