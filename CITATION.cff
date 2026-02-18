@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Pedron"
+  given-names: "Martin Giuseppe"
+title: "GreenRatingAlgorithm: un algoritmo per la valutazione automatica della regola 3-30-300 sul verde urbano di prossimità"
+version: 1.0.0
+date-released: 2026
+url: "https://github.com/PedronMartin/greenRatingAlgorithm"
